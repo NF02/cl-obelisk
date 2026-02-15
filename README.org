@@ -1,0 +1,57 @@
+#+author: Nicola Ferru
+#+email: ask.nfvblog@outlook.it
+#+title: Common Lisp Obelisk
+
+Obelisk è un DSL (*Domain Specific Language*) professionale per Common Lisp, nato come sistema pratico per la scrittura di grafi e mappe mentali o concettuali.
+
+La sua nascita è stata accidentale: deriva dalla necessità di creare mappe concettuali per l'università (esami o tirocini), esigenza che si scontrava violentemente con i software grafici tradizionali. Questi ultimi, infatti, tendono a sprecare spazio sulla carta e a posizionare i nodi in modo poco funzionale. Poiché la mia filosofia è sempre stata quella di ottenere un software affine alla velocità e alla forma delle idee, ecco Obelisk... è un'amara ironia, ma è così.
+
+* Gli stili                                                           :style:
+La libreria presenta quattro stili, pensati per compiti distinti:
+
+- *:tecnico*: un'organizzazione minimale per uso tecnico-scientifico, composta da linee dritte, nodi rettangolari e un grigio sobrio.
+- *:umanistico*: studiato per concetti astratti; utilizza una struttura a "palloncini" per facilitare la comprensione.
+- *:boheme*: nato dal desiderio di qualcosa di non convenzionale. È un estro creativo personale: non vuole piacere né essere adorato, esiste semplicemente perché doveva esistere.
+- *:tondo*: uno stile moderno e simmetrico che utilizza nodi circolari su sfondo azzurro tenue. È ideale per sistemi chiusi, cicli biologici o processi logici dove ogni nodo ha lo stesso peso visivo.
+
+Altri stili potrebbero essere aggiunti in futuro.
+
+* Requisiti                                                             :req:
+Per funzionare, Obelisk richiede che siano installati nel sistema:
+
+- *Graphviz* (il comando =dot= deve essere disponibile nel ~PATH~).
+- *Common Lisp* (testato su SBCL).
+- *Quicklisp* (il gestore pacchetti per cui è stato concepito).
+
+* Installazione                                               :installazione:
+Clona il repository nella tua cartella ~local-projects~:
+
+#+begin_src shell
+  cd ~/quicklisp/local-projects/
+  git clone https://github.com/tuo-username/cl-obelisk.git
+#+end_src
+
+Carica la libreria con:
+
+#+begin_src lisp
+  (ql:quickload :cl-obelisk)
+#+end_src
+
+* Esempio Rapido (DSL)                                                  :dsl:
+Ecco come creare una mappa concettuale con cicli e gerarchie marcate:
+
+#+srcname: Esempio di DSL
+#+begin_src lisp
+  (cl-obelisk:genera-da-dsl "mia_mappa" 
+                 '("Obelisk"
+                   (:importante "Semplice"
+                        (:default "Veloce"))
+                   (:umanistico "Creativo"
+                        (:boheme "Senza Regole"
+                             (:relazionale :ref "Obelisk")))) ; Gestione automatica dei cicli
+                 :stile :umanistico
+                 :orientamento :orizzontale)
+#+end_src
+
+* Licenza
+Distribuito sotto licenza *GPLv3*.

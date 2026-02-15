@@ -1,5 +1,9 @@
 ;;; --- DEMO COMPATTA CL-OBELISK ---
-(load "cl-obelisk.lisp")
+(push (uiop:getcwd) asdf:*central-registry*)
+
+;; 2. Caricamento della libreria e dipendenze
+(ql:quickload :cl-obelisk)
+
 (in-package :cl-obelisk)
 
 ;; Definiamo un grafo con un ciclo: A -> B -> A
@@ -13,6 +17,7 @@
         (:relazionale :ref "Esercizi"))))) ; Convergenza!
 
 ;; Generazione rapida
-(genera-da-dsl "mappa_ciclica" *appunti-complessi* :stile :umanistico
+(genera-da-dsl "mappa_ciclica" *appunti-complessi* :stile :tondo
+	       :carta '(15 15)
                :orientamento :orizzontale 
-               :formato :svg)
+               :formato :png)
