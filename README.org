@@ -62,7 +62,11 @@ Ecco come creare una mappa concettuale con cicli e gerarchie marcate:
 #+end_src
 
 ** Rappresentazione grafica
+Per rendere più semplice la comprensione a tutti come esso funzioni _CL-obelisk_:
 
+#+name: Schema funzionale
 [[./docs/CL-OBELISK.svg]]
+
+Non è matematicamente semplice, ma quanto meno è veloce.
 * Licenza
 Distribuito sotto licenza *GPLv3*.
