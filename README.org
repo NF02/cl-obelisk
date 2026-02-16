@@ -17,10 +17,12 @@ La libreria presenta quattro stili, pensati per compiti distinti:
 Altri stili potrebbero essere aggiunti in futuro.
 
 ** Formati supportati
-| *:formato*             | *:carta*         |
-|------------------------+------------------|
-| ~:png~, ~:pdf~, ~:svg~ | ~a2~, ~a3~, ~a4~ |
 
+| *:formato*             | *:carta*            |
+|------------------------+---------------------|
+| ~:png~, ~:pdf~, ~:svg~ | ~:a2~, ~:a3~, ~:a4~ |
+
+Di =default=, Obelisk ragiona in verticale, l'orientamento è una delle opzioni parametriche.
 
 ** Requisiti                                                           :req:
 Per funzionare, Obelisk richiede che siano installati nel sistema:
