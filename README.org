@@ -36,6 +36,14 @@ Carica la libreria con:
 #+begin_src lisp
   (ql:quickload :cl-obelisk)
 #+end_src
+** Non funziona?
+Se Quicklisp non dovesse trovare il sistema, prova a sincronizzare manualmente la directory del progetto nel registro di *ASDF*:
+
+#+begin_src lisp
+  (push (uiop:getcwd) asdf:*central-registry*)
+#+end_src
+
+In molti casi, questo risolve i problemi di pacchetto non trovato permettendo a =(ql:quickload :cl-obelisk)= di procedere correttamente.
 
 * Esempio Rapido (DSL)                                                  :dsl:
 Ecco come creare una mappa concettuale con cicli e gerarchie marcate:
@@ -53,5 +61,8 @@ Ecco come creare una mappa concettuale con cicli e gerarchie marcate:
                  :orientamento :orizzontale)
 #+end_src
 
+** Rappresentazione grafica
+
+[[./docs/CL-OBELISK.svg]]
 * Licenza
 Distribuito sotto licenza *GPLv3*.
