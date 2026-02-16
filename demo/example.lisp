@@ -1,3 +1,5 @@
+(push (uiop:getcwd) asdf:*central-registry*)
+
 (ql:quickload :cl-obelisk)
 
 (cl-obelisk:genera-da-dsl "CL-OBELISK"

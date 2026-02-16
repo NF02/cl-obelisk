@@ -17,7 +17,7 @@
         (:relazionale :ref "Esercizi"))))) ; Convergenza!
 
 ;; Generazione rapida
-(genera-da-dsl "mappa_ciclica" *appunti-complessi* :stile :tondo
+(genera-da-dsl "mappa_ciclica" *appunti-complessi* :stile :boheme
 	       :carta '(15 15)
                :orientamento :orizzontale 
                :formato :png)
