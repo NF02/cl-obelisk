@@ -2,7 +2,7 @@
   :version "0.1.0"
   :author "Nicola Ferru"
   :license "GPLv3"
-  :depends-on ("cl-dot" "uiop") ; Qui dichiariamo le dipendenze esterne
+  :depends-on ("cl-dot" "uiop" "cl-ppcre") ; Qui dichiariamo le dipendenze esterne
   :components ((:module "src"
                 :components
                 ((:file "cl-obelisk"))))

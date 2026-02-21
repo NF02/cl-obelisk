@@ -1,8 +1,9 @@
 (push (uiop:getcwd) asdf:*central-registry*)
 
 (ql:quickload :cl-obelisk)
+(in-package :cl-obelisk)
 
-(cl-obelisk:genera-da-dsl "CL-OBELISK"
+(genera-da-dsl "CL-OBELISK"
 			  '("CL-OBELISK: Core Logic"
 			    (:importante "DSL Input (S-Expression)"
 			     (:default "Parser (parse-smart-dsl)"
@@ -19,6 +20,5 @@
 			     (:importante "Output Engine"
 			      (:default "dot Executable"
 			       (:relazionale :ref "CL-OBELISK: Core Logic"))))) ;; Ciclo logico
-			  :stile :tondo :orientamento :orizzontale
-			  :carta '(15 15)
-			  :formato :svg)
+			  :stile :umanistico :orientamento :verticale
+			  :formato :png)

@@ -3,36 +3,119 @@
 ;;; License: GPLv3
 
 (defpackage :cl-obelisk
-	    (:use :cl)
-	    (:export #:nodo-mappa
-		     #:mappa-grafo
-		     #:esporta-mappa
-		     #:genera-pdf-mappa
-		     #:genera-png-mappa
-		     #:genera-svg-mappa
-		     #:genera-da-dsl
-		     #:carica-e-genera
-		     #:carica-relazioni-da-file
-		     #:parse-smart-dsl))
+  (:use :cl)
+  (:export #:nodo-mappa
+           #:mappa-grafo
+           #:esporta-mappa
+           #:genera-da-dsl
+           #:esporta-mappa-tikz
+           #:genera-tikz-da-dsl))
 
 (in-package :cl-obelisk)
 
-;; --- 1. Data Structures ---
+;; --- 1. Strutture Dati (CLOS) ---
 
 (defclass nodo-mappa ()
-  ((id       :initarg :id       :accessor nodo-id       :documentation "Unique identifier and label for the node.")
-   (livello  :initarg :livello  :initform 0   :accessor nodo-livello  :documentation "Hierarchical depth from the root.")
-   (centro-p :initarg :centro-p :initform nil :accessor centro-p      :documentation "Boolean flag indicating the root node.")
-   (figli    :initform nil      :accessor nodo-figli    :documentation "List of child nodes (successor nodes).")))
+  ((id       :initarg :id       :accessor nodo-id       :documentation "Etichetta originale (LaTeX ammesso).")
+   (livello  :initarg :livello  :initform 0   :accessor nodo-livello  :documentation "Profondità nella gerarchia.")
+   (centro-p :initarg :centro-p :initform nil :accessor centro-p      :documentation "Vero se è il nodo radice.")
+   (figli    :initform nil      :accessor nodo-figli    :documentation "Lista di istanze nodo-mappa collegate.")))
 
 (defclass mappa-grafo (cl-dot:graph)
-  ((stile       :initarg :stile       :accessor grafo-stile       :documentation "Visual theme: :tecnico, :humanistico, or :boheme.")
-   (edge-styles :initarg :edge-styles :accessor grafo-edge-styles :documentation "Hash map storing specific styles for edges.")))
+  ((stile       :initarg :stile       :accessor grafo-stile)
+   (edge-styles :initarg :edge-styles :accessor grafo-edge-styles)))
 
-;; --- 2. Internal Logic ---
+;; --- 2. Utility per Stringhe e Matematica (Pure Lisp) ---
+
+(defun string-replace-all (old new string)
+  "Sostituisce tutte le occorrenze di una sottostringa in modo iterativo e sicuro."
+  (with-output-to-string (out)
+    (loop with old-len = (length old)
+          for start = 0 then (+ pos old-len)
+          for pos = (search old string :start2 start)
+          do (write-string (subseq string start (or pos (length string))) out)
+          while pos
+          do (write-string new out))))
+
+(defun render-lisp-math (label)
+  "Trasforma LaTeX in testo leggibile per il PNG senza sbilanciare le parentesi."
+  (unless (and (stringp label) (plusp (length label)) (char= (char label 0) #\$))
+    (return-from render-lisp-math label))
+  (let ((res (remove #\$ label))
+        (mappa '(("\\frac" . "/") ("\\sqrt" . "√") ("\\alpha" . "α")
+                 ("\\beta" . "β") ("\\pi" . "π") ("{" . "(") ("}" . ")"))))
+    (dolist (pair mappa)
+      (setf res (string-replace-all (car pair) (cdr pair) res)))
+    (remove #\\ res)))
+
+(defun nodo-id-sanitizzato (nodo)
+  "Crea un ID alfanumerico per TikZ evitando caratteri speciali."
+  (concatenate 'string "n" 
+               (remove-if-not #'alphanumericp 
+                              (string-replace-all " " "" (nodo-id nodo)))))
+
+(defun risolvi-formato-carta (formato)
+  "Mappa i simboli dei formati carta nelle dimensioni Graphviz."
+  (case formato
+    (:a4 "8.3,11.7!")
+    (:a3 "11.7,16.5!")
+    (:a2 "16.5,23.4!")
+    (t (if (listp formato)
+           (format nil "~A,~A!" (first formato) (second formato))
+           nil))))
+
+;; --- 3. Implementazione Protocollo cl-dot (PNG/SVG) ---
+
+(defun calcola-attributi-dimensione (nodo)
+  "Definisce font e spessore in base al livello gerarchico."
+  (let* ((lvl (nodo-livello nodo))
+         (f-size (case lvl (0 26) (1 18) (2 12) (t 9)))
+         (p-width (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.6))))
+    (values f-size p-width)))
+
+(defmethod cl-dot:graph-object-node ((graph mappa-grafo) (obj nodo-mappa))
+  (multiple-value-bind (f-size p-width) (calcola-attributi-dimensione obj)
+    (let* ((label-clean (render-lisp-math (nodo-id obj)))
+           (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean)))
+      (make-instance 'cl-dot:node
+                     :attributes 
+                     (case (grafo-stile graph)
+                       (:tecnico (append base-attrs '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier")))
+                       (:scientifico (append base-attrs '(:shape :none :fontname "Times-Italic")))
+                       (:umanistico (append base-attrs '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic")))
+                       (t (append base-attrs '(:shape :ellipse))))))))
+
+(defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
+  (loop for figlio in (nodo-figli obj)
+        collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
+                       (stile (gethash key (grafo-edge-styles graph) :default))
+                       (attrs (case stile
+                                (:tratteggiato '(:style :dashed :arrowhead :vee))
+                                (:importante   '(:penwidth 2.5 :color "#000000"))
+                                (t             '(:arrowhead :vee)))))
+                  (make-instance 'cl-dot:attributed :object figlio :attributes attrs))))
+
+;; --- 4. Esportazione TikZ ---
+
+(defun esporta-mappa-tikz (nodi edge-styles stream)
+  "Scrive il codice sorgente TikZ per LaTeX usando le label originali."
+  (format stream "\\begin{tikzpicture}[node distance=3cm, every node/.style={draw, fill=gray!10, font=\\small}]~%")
+  ;; Renderizza i nodi
+  (dolist (n nodi)
+    (format stream "  \\node (~A) {~A};~%" (nodo-id-sanitizzato n) (nodo-id n)))
+  ;; Renderizza gli archi
+  (dolist (n nodi)
+    (dolist (figlio (nodo-figli n))
+      (let* ((key (cons (nodo-id n) (nodo-id figlio)))
+             (stile (gethash key edge-styles :default))
+             (t-style (if (eq stile :tratteggiato) "dashed, ->" "->")))
+        (format stream "  \\draw[~A] (~A) -- (~A);~%" t-style (nodo-id-sanitizzato n) (nodo-id-sanitizzato figlio)))))
+  (format stream "\\end{tikzpicture}~%"))
+
+;; --- 5. Logica Core e Parser DSL ---
 
 (defun calcola-gerarchia (centro-id relazioni)
-  "Performs a Breadth-First Search (BFS) to determine the depth level of each node."
+  "Calcola la distanza BFS dalla radice."
   (let ((distanze (make-hash-table :test 'equal))
         (coda (list (cons centro-id 0))))
     (setf (gethash centro-id distanze) 0)
@@ -46,139 +129,70 @@
                      (setf coda (nconc coda (list (cons dest (1+ d))))))))))
     distanze))
 
-(defun calcola-attributi-dimensione (nodo)
-  "Returns font size and pen width based on node depth to establish visual hierarchy."
-  (let* ((lvl (nodo-livello nodo))
-         (f-size (case lvl
-                       (0 26)   ; Root level
-                       (1 18)   ; Main branches
-                       (2 12)   ; Sub-topics
-                       (t 9)))  ; Leaf nodes/details
-         (p-width (case lvl
-			(0 4.5)
-			(1 2.5)
-			(2 1.2)
-			(t 0.6))))
-    (values f-size p-width)))
-
-(defun risolvi-formato-carta (formato)
-  "Maps paper size keywords to Graphviz-compatible dimension strings."
-  (case formato
-	(:a4 "8.3,11.7!")
-	(:a3 "11.7,16.5!")
-	(:a2 "16.5,23.4!")
-	(t (if (listp formato)
-               (format nil "~A,~A!" (first formato) (second formato))
-             nil))))
-
-;; --- 3. cl-dot Protocol Implementation ---
-
-(defmethod cl-dot:graph-object-node ((graph mappa-grafo) (obj nodo-mappa))
-	   "Translates cl-obelisk nodes into cl-dot node instances with thematic attributes."
-	   (multiple-value-bind (f-size p-width) (calcola-attributi-dimensione obj)
-				(let ((base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,(nodo-id obj))))
-				  (make-instance 'cl-dot:node
-						 :attributes 
-						 (case (grafo-stile graph)
-						       (:tecnico 
-							(append base-attrs '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier")))
-						       (:umanistico 
-							(append base-attrs '(:shape :oval :style :filled :fillcolor "#fdf6e3" :color "#586e75" :fontname "Georgia italic")))
-						       (:boheme 
-							(append base-attrs '(:shape :egg :style (:filled :dashed) :fillcolor "#ff9966" :color "#993300" :fontname "Times-Bold")))
-						       (:tondo 
-							(append base-attrs '(:shape :circle :style :filled :fillcolor "#e1f5fe" :color "#01579b" :fontname "Helvetica")))
-						       (t (append base-attrs '(:shape :ellipse))))))))
-
-(defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
-	   "Generates edge instances between nodes, applying semantic styles."
-	   (loop for figlio in (nodo-figli obj)
-		 collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
-				(stile-arco (gethash key (grafo-edge-styles graph) :default))
-				(attrs (case stile-arco
-					     (:relazionale   '(:style :dashed :arrowhead :none))
-					     (:tratteggiato  '(:style :dashed :arrowhead :vee))
-					     (:importante    '(:penwidth 2.5 :color "#000000"))
-					     (t              '(:arrowhead :vee)))))
-			   (make-instance 'cl-dot:attributed
-					  :object figlio
-					  :attributes attrs))))
-
-;; --- 4. DSL Parser & Data Preparation ---
-
-(defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)))
-  "Recursively parses the nested DSL structure. Automatically detects cycles to prevent infinite recursion."
-  (let* ((stile (first node-data))
-         (label-ref (second node-data))
-         (is-ref (eq label-ref :ref))
-         (label (if is-ref (first (cddr node-data)) label-ref))
-         (children (if is-ref (rest (cddr node-data)) (cddr node-data)))
-         (rel (list parent label stile)))
-    (cond 
-     ((gethash label seen) (list rel))
-     (t (setf (gethash label seen) t)
-        (cons rel (loop for child in children 
-                        nconc (parse-smart-dsl label child seen)))))))
-
 (defun prepara-mappa (relazioni centro-id)
-  "Hydrates the internal node objects and edge metadata from a flat list of relations."
+  "Istanzia gli oggetti nodo-mappa e popola gli archi."
   (let ((distanze (calcola-gerarchia centro-id relazioni))
         (nodi-cache (make-hash-table :test 'equal))
         (edge-styles (make-hash-table :test 'equal)))
     (dolist (rel relazioni)
       (destructuring-bind (da-id a-id stile-arco) rel
-			  (flet ((prendi-nodo (id)
-					      (or (gethash id nodi-cache)
-						  (setf (gethash id nodi-cache)
-							(make-instance 'nodo-mappa 
-								       :id id 
-								       :centro-p (string= id centro-id)
-								       :livello (gethash id distanze 3))))))
-				(let ((nodo-da (prendi-nodo da-id))
-				      (nodo-a (prendi-nodo a-id)))
-				  (pushnew nodo-a (nodo-figli nodo-da))
-				  (setf (gethash (cons da-id a-id) edge-styles) stile-arco)))))
+        (flet ((prendi-nodo (id)
+                 (or (gethash id nodi-cache)
+                     (setf (gethash id nodi-cache)
+                           (make-instance 'nodo-mappa :id id :centro-p (string= id centro-id) :livello (gethash id distanze 3))))))
+          (let ((nodo-da (prendi-nodo da-id)) (nodo-a (prendi-nodo a-id)))
+            (pushnew nodo-a (nodo-figli nodo-da))
+            (setf (gethash (cons da-id a-id) edge-styles) stile-arco)))))
     (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
 
-;; --- 5. Public API ---
+(defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)))
+  "Trasforma il DSL annidato in una lista piatta di relazioni (da a stile)."
+  (let* ((stile (first node-data))
+         (label (second node-data))
+         (children (cddr node-data))
+         (rel (list parent label stile)))
+    (if (gethash label seen) (list rel)
+        (progn (setf (gethash label seen) t)
+               (cons rel (loop for child in children nconc (parse-smart-dsl label child seen)))))))
 
-(defun esporta-mappa (nome-file relazioni &key (centro-id nil) (stile :tecnico) (formato :pdf) (carta :a4) (orientamento :verticale) (dir-output "output"))
-  "Primary export function. Generates a diagram file in a format-specific subdirectory."
-  (let* ((root-id (or centro-id (first (first relazioni))))
-         (ext (string-downcase (symbol-name formato)))
-         (target-dir (format nil "~A/~A/" dir-output ext))
-         (dot-file (format nil "~A~A.dot" target-dir nome-file))
-         (out-file (format nil "~A~A.~A" target-dir nome-file ext))
-         (dim-carta (risolvi-formato-carta carta))
-         (rankdir (if (eq orientamento :orizzontale) "LR" "TB")))
-    (ensure-directories-exist target-dir)
-    (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root-id)
-			 (let* ((graph-attrs `(:rankdir ,rankdir :overlap "false" :splines "true"
-							,@(when dim-carta (list :size dim-carta :ratio "fill"))))
-				(grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
-				(grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
-			   (with-open-file (s dot-file :direction :output :if-exists :supersede)
-					   (cl-dot:print-graph grafo-dot :stream s))
-			   (uiop:run-program (list "dot" (format nil "-T~A" ext) dot-file "-o" out-file))
-			   (when (uiop:file-exists-p dot-file) (delete-file dot-file))
-			   (format t "~%[cl-obelisk] ~A generated at: ~A~%" (string-upcase ext) out-file)))))
+;; --- 6. API Pubbliche con Gestione Cartelle Output ---
 
-(defun genera-da-dsl (nome-file dsl-data &rest args)
-  "Interface for generating maps directly from the nested DSL structure."
+(defun genera-da-dsl (nome-file dsl-data &key (stile :tecnico) (formato :png) (orientamento :verticale) (carta :a4) (dir-base "output"))
+  "Genera l'immagine salvandola in dir-base/formato/nome-file.estensione"
   (let* ((root (first dsl-data))
-         (relazioni (loop for branch in (rest dsl-data)
-                          nconc (parse-smart-dsl root branch))))
-    (apply #'esporta-mappa nome-file relazioni :centro-id root args)))
+         (relazioni (loop for branch in (rest dsl-data) nconc (parse-smart-dsl root branch)))
+         (rankdir (if (eq orientamento :orizzontale) "LR" "TB"))
+         (dim-carta (risolvi-formato-carta carta))
+         (est (string-downcase (symbol-name formato)))
+         ;; Creazione del percorso dinamico: output/png/ o output/pdf/
+         (target-dir (format nil "~A/~A/" dir-base est))
+         (final-out (format nil "~A~A.~A" target-dir nome-file est)))
+    
+    (ensure-directories-exist target-dir)
+    
+    (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
+      (let* ((graph-attrs `(:rankdir ,rankdir :overlap "false" :splines "true"
+                            ,@(when dim-carta (list :size dim-carta :ratio "fill"))))
+             (grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
+             (grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
+        
+        (uiop:with-temporary-file (:pathname dot-path :keep nil)
+          (with-open-file (s dot-path :direction :output :if-exists :supersede)
+            (cl-dot:print-graph grafo-dot :stream s))
+          (uiop:run-program (list "dot" (format nil "-T~A" est) 
+                                 (namestring dot-path) "-o" final-out)))
+        (format t "~%[cl-obelisk] Immagine generata in: ~A" final-out)))))
 
-(defun carica-relazioni-da-file (path)
-  "Reads a Lisp expression (list) from a file."
-  (with-open-file (s path) (read s)))
-
-(defun carica-e-genera (nome-file path-dsl &rest args)
-  "Loads a DSL file and triggers the map generation."
-  (apply #'genera-da-dsl nome-file (carica-relazioni-da-file path-dsl) args))
-
-;; Fast-access wrappers for common formats
-(defun genera-pdf-mappa (nome-file relazioni &rest args) (apply #'esporta-mappa nome-file relazioni :formato :pdf args))
-(defun genera-png-mappa (nome-file relazioni &rest args) (apply #'esporta-mappa nome-file relazioni :formato :png args))
-(defun genera-svg-mappa (nome-file relazioni &rest args) (apply #'esporta-mappa nome-file relazioni :formato :svg args))
+(defun genera-tikz-da-dsl (nome-file dsl-data &key (dir-base "output"))
+  "Genera il file TikZ salvandolo in dir-base/tikz/nome-file.tex"
+  (let* ((root (first dsl-data))
+         (relazioni (loop for branch in (rest dsl-data) nconc (parse-smart-dsl root branch)))
+         (target-dir (format nil "~A/tikz/" dir-base))
+         (path (format nil "~A~A.tex" target-dir nome-file)))
+    
+    (ensure-directories-exist target-dir)
+    
+    (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
+      (with-open-file (s path :direction :output :if-exists :supersede)
+        (esporta-mappa-tikz nodi edge-styles s))
+      (format t "~%[cl-obelisk] TikZ generato in: ~A" path))))
