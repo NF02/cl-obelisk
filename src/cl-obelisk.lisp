@@ -106,20 +106,19 @@
          ;; Il fattore finale è un bilanciamento
          (scala-finale (* scala-formato scala-densita)))
     
-    (values (* (case lvl (0 26) (1 18) (2 12) (t 9)) scala-finale)
-            (* (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.6)) scala-finale))))
+    (values (* (case lvl (0 26) (1 18) (2 14) (t 12)) scala-finale)
+            (* (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.8)) scala-finale))))
 
 (defmethod cl-dot:graph-object-node ((graph mappa-grafo) (obj nodo-mappa))
   (multiple-value-bind (f-size p-width)
       (calcola-attributi-adattivi obj :a4 (length (nodo-figli obj)))
     
     (let* ((label-clean (render-lisp-math (nodo-id obj)))
-           ;; Definiamo i dati base
            (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean))
-           ;; Definiamo l'attributo di raggruppamento (usando :group come concordato)
-           (group-attr (unless (nodo-centro-p obj)
-                         `(:group ,(format nil "lvl_~A" (nodo-livello obj)))))
-           ;; Selezioniamo lo stile in base al grafo
+           ;; Usiamo append su una lista vuota per evitare NIL puri in fase di merge
+           (group-attr (if (nodo-centro-p obj) 
+                           nil 
+                           `(:group ,(format nil "lvl_~A" (nodo-livello obj)))))
            (style-attrs (case (grafo-stile graph)
                           (:tecnico     '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier"))
                           (:scientifico '(:shape :none :fontname "Times-Italic"))
@@ -127,9 +126,9 @@
                           (:boheme      '(:shape :oval :style "filled,bold" :fillcolor "#FFD700" :pencolor "#000000" :penwidth 3.0 :fontname "Comic Sans MS"))
                           (t            '(:shape :ellipse)))))
       
-      ;; Ora uniamo tutto in una volta sola: base + stile + raggruppamento
       (make-instance 'cl-dot:node
-                     :attributes (append base-attrs style-attrs group-attr)))))
+                     :attributes (append base-attrs style-attrs group-attr)))))      
+
 
 (defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
   (loop for figlio in (nodo-figli obj)
