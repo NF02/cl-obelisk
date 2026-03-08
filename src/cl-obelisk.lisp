@@ -16,10 +16,10 @@
 ;; --- 1. Strutture Dati (CLOS) ---
 
 (defclass nodo-mappa ()
-  ((id       :initarg :id       :accessor nodo-id       :documentation "Etichetta originale (LaTeX ammesso).")
+  ((id       :initarg :id       :accessor nodo-id                     :documentation "Etichetta originale (LaTeX ammesso).")
    (livello  :initarg :livello  :initform 0   :accessor nodo-livello  :documentation "Profondità nella gerarchia.")
-   (centro-p :initarg :centro-p :initform nil :accessor centro-p      :documentation "Vero se è il nodo radice.")
-   (figli    :initform nil      :accessor nodo-figli    :documentation "Lista di istanze nodo-mappa collegate.")))
+   (centro-p :initarg :centro-p :initform nil :accessor nodo-centro-p :documentation "Vero se è il nodo radice.")
+   (figli    :initform nil      :accessor nodo-figli                  :documentation "Lista di istanze nodo-mappa collegate.")))
 
 (defclass mappa-grafo (cl-dot:graph)
   ((stile       :initarg :stile       :accessor grafo-stile)
@@ -58,42 +58,97 @@
   "Mappa i simboli dei formati carta nelle dimensioni Graphviz."
   (case formato
     (:a4 "8.3,11.7!")
+    (:a4-or "11.7,8.3!")
     (:a3 "11.7,16.5!")
+    (:a3-or "16.5,11.7!")
     (:a2 "16.5,23.4!")
+    (:a2-or "23.4,16.5!")
     (t (if (listp formato)
            (format nil "~A,~A!" (first formato) (second formato))
            nil))))
 
 ;; --- 3. Implementazione Protocollo cl-dot (PNG/SVG) ---
+(defun ottenere-fattore-scala (formato)
+  (declare (optimize (speed 3))) ; Ottimizzazione
+  (the single-float ; Forza il risultato ad essere un float
+       (case formato
+         (:a4 1.2)
+         (:a4-or 1.5)
+         (:a3 1.414)
+         (:a3-or 1.8)
+         (:a2 2.0)
+         (:a2-or 2.3)
+         (t 1.0))))
 
-(defun calcola-attributi-dimensione (nodo)
-  "Definisce font e spessore in base al livello gerarchico."
+(defun calcola-fattore-densita (num-nodi)
+  "Riduce il fattore di scala se ci sono troppi nodi."
+  (cond ((< num-nodi 10) 1.2)  ;; Pochi nodi: possiamo permetterci di ingrandire
+        ((< num-nodi 50) 1.0)  ;; Media densità: baseline
+        (t (max 0.6 (/ 50.0 num-nodi))))) ;; Molti nodi: riduciamo progressivamente
+
+(defun calcola-scala-font (formato)
+  "Applica una radice quadrata al fattore per evitare che i font diventino giganti."
+  (let ((base-scala (ottenere-fattore-scala formato)))
+    (sqrt base-scala)))
+
+(defun identifica-cluster (nodo)
+  ;; Usa l'accessor corretto definito nella tua classe (centro-p)
+  (if (centro-p nodo)
+      nil 
+      ;; Qui devi decidere come identificare il ramo. 
+      ;; Se non hai una funzione per il livello, devi crearla o leggere l'ID.
+      (format nil "cluster_~A" (nodo-id nodo))))
+
+(defun calcola-attributi-adattivi (nodo formato num-totale-nodi)
   (let* ((lvl (nodo-livello nodo))
-         (f-size (case lvl (0 26) (1 18) (2 12) (t 9)))
-         (p-width (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.6))))
-    (values f-size p-width)))
+         (scala-formato (ottenere-fattore-scala formato))
+         (scala-densita (calcola-fattore-densita num-totale-nodi))
+         ;; Il fattore finale è un bilanciamento
+         (scala-finale (* scala-formato scala-densita)))
+    
+    (values (* (case lvl (0 26) (1 18) (2 12) (t 9)) scala-finale)
+            (* (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.6)) scala-finale))))
 
 (defmethod cl-dot:graph-object-node ((graph mappa-grafo) (obj nodo-mappa))
-  (multiple-value-bind (f-size p-width) (calcola-attributi-dimensione obj)
+  (multiple-value-bind (f-size p-width)
+      (calcola-attributi-adattivi obj :a4 (length (nodo-figli obj)))
+    
     (let* ((label-clean (render-lisp-math (nodo-id obj)))
-           (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean)))
+           ;; Definiamo i dati base
+           (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean))
+           ;; Definiamo l'attributo di raggruppamento (usando :group come concordato)
+           (group-attr (unless (nodo-centro-p obj)
+                         `(:group ,(format nil "lvl_~A" (nodo-livello obj)))))
+           ;; Selezioniamo lo stile in base al grafo
+           (style-attrs (case (grafo-stile graph)
+                          (:tecnico     '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier"))
+                          (:scientifico '(:shape :none :fontname "Times-Italic"))
+                          (:umanistico  '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic"))
+                          (:boheme      '(:shape :oval :style "filled,bold" :fillcolor "#FFD700" :pencolor "#000000" :penwidth 3.0 :fontname "Comic Sans MS"))
+                          (t            '(:shape :ellipse)))))
+      
+      ;; Ora uniamo tutto in una volta sola: base + stile + raggruppamento
       (make-instance 'cl-dot:node
-                     :attributes 
-                     (case (grafo-stile graph)
-                       (:tecnico (append base-attrs '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier")))
-                       (:scientifico (append base-attrs '(:shape :none :fontname "Times-Italic")))
-                       (:umanistico (append base-attrs '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic")))
-                       (t (append base-attrs '(:shape :ellipse))))))))
+                     :attributes (append base-attrs style-attrs group-attr)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
   (loop for figlio in (nodo-figli obj)
         collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
+                       ;; Usiamo gethash in modo sicuro
                        (stile (gethash key (grafo-edge-styles graph) :default))
+                       ;; Definiamo gli attributi base
                        (attrs (case stile
-                                (:tratteggiato '(:style :dashed :arrowhead :vee))
-                                (:importante   '(:penwidth 2.5 :color "#000000"))
-                                (t             '(:arrowhead :vee)))))
-                  (make-instance 'cl-dot:attributed :object figlio :attributes attrs))))
+                                (:tratteggiato   '(:style :dashed :arrowhead :vee))
+                                (:relazione-base '(:style :dashed :arrowhead :none))
+                                (:relazione-crow '(:style :crow :arrowhead :crow))
+                                (:relazione-curve '(:style :crow :arrowhead :curve))
+                                (:relazione-icurve '(:style :crow :arrowhead :icurve))
+                                (:importante     '(:penwidth 2.5 :color "#000000"))
+                                (t               '(:arrowhead :vee)))))
+                  ;; Restituiamo l'oggetto che cl-dot si aspetta
+                  (make-instance 'cl-dot:attributed 
+                                 :object figlio 
+                                 :attributes attrs))))
 
 ;; --- 4. Esportazione TikZ ---
 
@@ -114,6 +169,12 @@
 
 ;; --- 5. Logica Core e Parser DSL ---
 
+(defun calcola-spaziatura (num-nodi)
+  "Restituisce una lista (nodesep ranksep) inversamente proporzionale al numero di nodi."
+  (cond ((< num-nodi 10) (list 1.5 2.0))  ;; Molto spazio per pochi nodi
+        ((< num-nodi 30) (list 0.8 1.0))  ;; Spazio medio
+        (t               (list 0.3 0.5)))) ;; Nodi vicini per non far esplodere il foglio
+
 (defun calcola-gerarchia (centro-id relazioni)
   "Calcola la distanza BFS dalla radice."
   (let ((distanze (make-hash-table :test 'equal))
@@ -130,30 +191,53 @@
     distanze))
 
 (defun prepara-mappa (relazioni centro-id)
-  "Istanzia gli oggetti nodo-mappa e popola gli archi."
+  "Istanzia correttamente gli oggetti nodo-mappa e popola gli archi con la gestione del livello."
   (let ((distanze (calcola-gerarchia centro-id relazioni))
         (nodi-cache (make-hash-table :test 'equal))
         (edge-styles (make-hash-table :test 'equal)))
+    
     (dolist (rel relazioni)
       (destructuring-bind (da-id a-id stile-arco) rel
+        ;; Funzione locale per ottenere o creare il nodo
         (flet ((prendi-nodo (id)
                  (or (gethash id nodi-cache)
                      (setf (gethash id nodi-cache)
-                           (make-instance 'nodo-mappa :id id :centro-p (string= id centro-id) :livello (gethash id distanze 3))))))
-          (let ((nodo-da (prendi-nodo da-id)) (nodo-a (prendi-nodo a-id)))
+                           (make-instance 'nodo-mappa 
+                                          :id id 
+                                          :centro-p (string= id centro-id) 
+                                          ;; Recupera il livello calcolato da calcola-gerarchia
+                                          :livello (gethash id distanze 0))))))
+          
+          (let ((nodo-da (prendi-nodo da-id))
+                (nodo-a (prendi-nodo a-id)))
+            ;; Aggiunge il nodo figlio alla lista dei figli del padre
             (pushnew nodo-a (nodo-figli nodo-da))
+            ;; Memorizza lo stile dell'arco usando la coppia (da . a)
             (setf (gethash (cons da-id a-id) edge-styles) stile-arco)))))
-    (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
+    
+    ;; Restituisce la lista dei nodi unici e la tabella degli stili
+    (values (loop for v being the hash-values of nodi-cache collect v) 
+            edge-styles)))
 
 (defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)))
-  "Trasforma il DSL annidato in una lista piatta di relazioni (da a stile)."
-  (let* ((stile (first node-data))
-         (label (second node-data))
-         (children (cddr node-data))
-         (rel (list parent label stile)))
-    (if (gethash label seen) (list rel)
-        (progn (setf (gethash label seen) t)
-               (cons rel (loop for child in children nconc (parse-smart-dsl label child seen)))))))
+  "Trasforma il DSL in una lista piatta di relazioni, gestendo sia rami (liste) che foglie (stringhe)."
+  (cond
+    ;; Caso 1: È una stringa -> Foglia terminale, usa uno stile di default
+    ((stringp node-data)
+     (list (list parent node-data :default)))
+    
+    ;; Caso 2: È una lista -> Nodo con stile, label e potenziali figli
+    (t
+     (let* ((stile (first node-data))
+            (label (second node-data))
+            (children (cddr node-data))
+            (rel (list parent label stile)))
+       (if (gethash label seen)
+           (list rel) ;; Evita cicli infiniti
+           (progn
+             (setf (gethash label seen) t)
+             (cons rel (loop for child in children 
+                             nconc (parse-smart-dsl label child seen)))))))))
 
 ;; --- 6. API Pubbliche con Gestione Cartelle Output ---
 
@@ -171,8 +255,14 @@
     (ensure-directories-exist target-dir)
     
     (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
-      (let* ((graph-attrs `(:rankdir ,rankdir :overlap "false" :splines "true"
-                            ,@(when dim-carta (list :size dim-carta :ratio "fill"))))
+      (let* ((num-totale (length nodi))
+	     (distanze (calcola-spaziatura num-totale))
+	     (graph-attrs `(:rankdir ,rankdir
+			    :overlap "false"
+			    :splines "true"
+			    :nodesep ,(first distanze)   ;; <--- DINAMICO
+			    :ranksep ,(second distanze)  ;; <--- DINAMICO
+				     ,@(when dim-carta (list :size dim-carta :ratio "fill"))))
              (grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
              (grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
         
@@ -180,7 +270,7 @@
           (with-open-file (s dot-path :direction :output :if-exists :supersede)
             (cl-dot:print-graph grafo-dot :stream s))
           (uiop:run-program (list "dot" (format nil "-T~A" est) 
-                                 (namestring dot-path) "-o" final-out)))
+				  (namestring dot-path) "-o" final-out)))
         (format t "~%[cl-obelisk] Immagine generata in: ~A" final-out)))))
 
 (defun genera-tikz-da-dsl (nome-file dsl-data &key (dir-base "output"))
