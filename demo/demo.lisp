@@ -24,11 +24,24 @@
                :orientamento :orizzontale 
                :formato :png)
 
+					; vecchio esempio
+(cl-obelisk:genera-da-dsl "mia_mappa"
+			  '("Obelisk"
+			    (:importante "Semplice"
+					 (:default "Veloce"))
+			    (:umanistico "Creativo"
+					 (:boheme "Senza Regole"
+						  (:relazionale :ref "Obelisk")))) ; Gestione automatica dei cicli
+			  :stile :umanistico
+			  :orientamento :orizzontale)
+
+
+
 ; nuovo dsl
 (cl-obelisk:genera-da-dsl "mia_mappa" 
 			  '("Obelisk"
 			    (:normal "Creativo"
-			     (:normal "Senza Regole" "Obelisk")) ;; se il nodo esiste fa un collegamento 
+			     (:normal "Senza Regole" "Obelisk")) ;; Gestione automatica dei cicli 
 			    (:importante "Semplice" "Veloce"))
 			    :carta :a4
 			    :margine 2
