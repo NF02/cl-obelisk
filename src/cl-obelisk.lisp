@@ -9,7 +9,8 @@
            #:esporta-mappa
            #:genera-da-dsl
            #:esporta-mappa-tikz
-           #:genera-tikz-da-dsl))
+           #:genera-tikz-da-dsl
+           #:graphviz-installed-p))
 
 (in-package :cl-obelisk)
 
@@ -68,9 +69,10 @@
            nil))))
 
 ;; --- 3. Implementazione Protocollo cl-dot (PNG/SVG) ---
+
 (defun ottenere-fattore-scala (formato)
-  (declare (optimize (speed 3))) ; Ottimizzazione
-  (the single-float ; Forza il risultato ad essere un float
+  (declare (optimize (speed 3)))
+  (the single-float
        (case formato
          (:a4 1.2)
          (:a4-or 1.5)
@@ -82,9 +84,9 @@
 
 (defun calcola-fattore-densita (num-nodi)
   "Riduce il fattore di scala se ci sono troppi nodi."
-  (cond ((< num-nodi 10) 1.2)  ;; Pochi nodi: possiamo permetterci di ingrandire
-        ((< num-nodi 50) 1.0)  ;; Media densità: baseline
-        (t (max 0.6 (/ 50.0 num-nodi))))) ;; Molti nodi: riduciamo progressivamente
+  (cond ((< num-nodi 10) 1.2)
+        ((< num-nodi 50) 1.0)
+        (t (max 0.6 (/ 50.0 num-nodi)))))
 
 (defun calcola-scala-font (formato)
   "Applica una radice quadrata al fattore per evitare che i font diventino giganti."
@@ -100,19 +102,15 @@
   (let* ((lvl (nodo-livello nodo))
          (scala-formato (ottenere-fattore-scala formato))
          (scala-densita (calcola-fattore-densita num-totale-nodi))
-         ;; Il fattore finale è un bilanciamento
          (scala-finale (* scala-formato scala-densita)))
-    
     (values (* (case lvl (0 26) (1 18) (2 14) (t 12)) scala-finale)
             (* (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.8)) scala-finale))))
 
 (defmethod cl-dot:graph-object-node ((graph mappa-grafo) (obj nodo-mappa))
   (multiple-value-bind (f-size p-width)
       (calcola-attributi-adattivi obj :a4 (length (nodo-figli obj)))
-    
     (let* ((label-clean (render-lisp-math (nodo-id obj)))
            (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean))
-           ;; Usiamo append su una lista vuota per evitare NIL puri in fase di merge
            (group-attr (if (nodo-centro-p obj) 
                            nil 
                            `(:group ,(format nil "lvl_~A" (nodo-livello obj)))))
@@ -122,23 +120,17 @@
                           (:umanistico  '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic"))
                           (:boheme      '(:shape :oval :style "filled,bold" :fillcolor "#FFD700" :pencolor "#000000" :penwidth 3.0 :fontname "Comic Sans MS"))
                           (t            '(:shape :ellipse)))))
-      
       (make-instance 'cl-dot:node
-                     :attributes (append base-attrs style-attrs group-attr)))))      
-
+                     :attributes (append base-attrs style-attrs group-attr)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
   (loop for figlio in (nodo-figli obj)
         collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
                        (valore-g (gethash key (grafo-edge-styles graph) :default))
-                       
-                       ;; Estrazione intelligente: gestisce sia lo stile atomico che la lista con constraint
                        (stile (if (listp valore-g) (first valore-g) valore-g))
                        (is-constrained (if (listp valore-g) 
                                            (getf (rest valore-g) :constraint t) 
                                            t))
-
-                       ;; Definizione attributi base
                        (base-attrs (case stile
                                      (:tratteggiato   '(:style :dashed :arrowhead :vee))
                                      (:relazione-base '(:style :dashed :arrowhead :none))
@@ -147,40 +139,40 @@
                                      (:relazione-icurve '(:style :crow :arrowhead :icurve))
                                      (:importante     '(:penwidth 2.5 :color "#000000"))
                                      (t               '(:arrowhead :vee))))
-                       
-                       ;; Aggiunta del constraint se necessario
                        (final-attrs (if (null is-constrained)
                                         (append base-attrs '(:constraint "false"))
                                         base-attrs)))
-                  
-                  ;; Restituiamo l'oggetto con gli attributi corretti
                   (make-instance 'cl-dot:attributed 
                                  :object figlio 
                                  :attributes final-attrs))))
-;; --- 4. Esportazione TikZ ---
+
+;; --- 4. Esportazione TikZ con distanza dinamica ---
 
 (defun esporta-mappa-tikz (nodi edge-styles stream)
-  "Scrive il codice sorgente TikZ per LaTeX usando le label originali."
-  (format stream "\\begin{tikzpicture}[node distance=3cm, every node/.style={draw, fill=gray!10, font=\\small}]~%")
-  ;; Renderizza i nodi
-  (dolist (n nodi)
-    (format stream "  \\node (~A) {~A};~%" (nodo-id-sanitizzato n) (nodo-id n)))
-  ;; Renderizza gli archi
-  (dolist (n nodi)
-    (dolist (figlio (nodo-figli n))
-      (let* ((key (cons (nodo-id n) (nodo-id figlio)))
-             (stile (gethash key edge-styles :default))
-             (t-style (if (eq stile :tratteggiato) "dashed, ->" "->")))
-        (format stream "  \\draw[~A] (~A) -- (~A);~%" t-style (nodo-id-sanitizzato n) (nodo-id-sanitizzato figlio)))))
-  (format stream "\\end{tikzpicture}~%"))
+  "Scrive il codice sorgente TikZ per LaTeX usando le label originali.
+   La distanza tra i nodi viene calcolata dinamicamente in base al numero di nodi."
+  (let* ((num-nodi (length nodi))
+         (distanza (max 1.5 (/ 15 (sqrt num-nodi))))) ; distanza in cm
+    (format stream "\\begin{tikzpicture}[node distance=~,2fcm, every node/.style={draw, fill=gray!10, font=\\small}]~%" distanza)
+    ;; Renderizza i nodi
+    (dolist (n nodi)
+      (format stream "  \\node (~A) {~A};~%" (nodo-id-sanitizzato n) (nodo-id n)))
+    ;; Renderizza gli archi
+    (dolist (n nodi)
+      (dolist (figlio (nodo-figli n))
+        (let* ((key (cons (nodo-id n) (nodo-id figlio)))
+               (stile (gethash key edge-styles :default))
+               (t-style (if (eq stile :tratteggiato) "dashed, ->" "->")))
+          (format stream "  \\draw[~A] (~A) -- (~A);~%" t-style (nodo-id-sanitizzato n) (nodo-id-sanitizzato figlio)))))
+    (format stream "\\end{tikzpicture}~%")))
 
 ;; --- 5. Logica Core e Parser DSL ---
 
 (defun calcola-spaziatura (num-nodi)
   "Restituisce una lista (nodesep ranksep) inversamente proporzionale al numero di nodi."
-  (cond ((< num-nodi 10) (list 1.5 2.0))  ;; Molto spazio per pochi nodi
-        ((< num-nodi 30) (list 0.8 1.0))  ;; Spazio medio
-        (t               (list 0.3 0.5)))) ;; Nodi vicini per non far esplodere il foglio
+  (cond ((< num-nodi 10) (list 1.5 2.0))
+        ((< num-nodi 30) (list 0.8 1.0))
+        (t               (list 0.3 0.5))))
 
 (defun calcola-gerarchia (centro-id relazioni)
   "Calcola la distanza BFS dalla radice."
@@ -214,13 +206,11 @@
     
     (dolist (rel relazioni)
       (destructuring-bind (da-id a-id stile-arco &rest opt) rel
-        ;; Qui la chiave: cerca sempre il nodo, non crearne uno nuovo se esiste già
         (let ((nodo-da (or (gethash da-id nodi-cache)
                            (setf (gethash da-id nodi-cache) (make-instance 'nodo-mappa :id da-id))))
               (nodo-a  (or (gethash a-id nodi-cache)
                            (setf (gethash a-id nodi-cache) (make-instance 'nodo-mappa :id a-id))))
               (constraint (getf opt :constraint t)))
-          
           (pushnew nodo-a (nodo-figli nodo-da))
           (setf (gethash (cons da-id a-id) edge-styles) (list stile-arco :constraint constraint)))))
     (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
@@ -228,7 +218,6 @@
 (defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)))
   (cond
     ((stringp node-data)
-     ;; Se è una stringa, è un arco semplice.
      (list (list parent node-data :default)))
     (t
      (let* ((stile (or (first node-data) :default))
@@ -237,7 +226,6 @@
        
        (if (and label (stringp label))
            (let ((rel (list parent label stile)))
-             ;; Se l'arco esiste già, non creare un nuovo nodo, ma chiudi il ciclo
              (if (gethash (cons parent label) seen)
                  (list (append rel '(:constraint "false")))
                  (progn
@@ -246,33 +234,51 @@
                                    when child
                                    nconc (parse-smart-dsl label child seen))))))
            nil)))))
-;; --- 6. API Pubbliche con Gestione Cartelle Output ---
+
+;; --- 6. Controllo Graphviz ---
+
+(defun graphviz-installed-p ()
+  "Verifica se il comando 'dot' di Graphviz è installato e accessibile."
+  (handler-case
+      (let ((exit-code 
+              (nth-value 2 (uiop:run-program '("dot" "-V") 
+                                             :output nil 
+                                             :error-output nil 
+                                             :ignore-error-status t))))
+        (zerop exit-code))
+    (error () nil)))
+
+;; --- 7. API Pubbliche con Gestione Cartelle Output e Margini ---
+
 (defun genera-da-dsl (nome-file dsl-data &key (stile :tecnico) (formato :png) 
                                  (orientamento :verticale) (carta :a4) 
                                  (dir-base "output")
-                                 (margine 0))   ; ← nuovo parametro in cm
+                                 (margine 0))
   "Genera l'immagine salvandola in dir-base/formato/nome-file.estensione"
+  (unless (graphviz-installed-p)
+    (error "cl-obelisk: Graphviz (dot) non trovato. Installalo o verifica il PATH."))
+  
   (let* ((root (first dsl-data))
          (relazioni (loop for branch in (rest dsl-data) nconc (parse-smart-dsl root branch)))
          (rankdir (if (eq orientamento :orizzontale) "LR" "TB"))
          (dim-carta (risolvi-formato-carta carta))
          (est (string-downcase (symbol-name formato)))
-         (target-dir (format nil "~A/~A/" dir-base est))
-         (final-out (format nil "~A~A.~A" target-dir nome-file est)))
+         (base-dir (uiop:ensure-directory-pathname dir-base))
+         (target-dir (uiop:merge-pathnames* (format nil "~A/" est) base-dir))
+         (final-out (uiop:merge-pathnames* (format nil "~A.~A" nome-file est) target-dir)))
     
     (ensure-directories-exist target-dir)
     
     (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
       (let* ((num-totale (length nodi))
              (distanze (calcola-spaziatura num-totale))
-             ;; Costruzione degli attributi del grafo con margine opzionale
              (graph-attrs `(:rankdir ,rankdir
                             :overlap "false"
                             :splines "true"
                             :nodesep ,(first distanze)
                             :ranksep ,(second distanze)
                             ,@(when dim-carta (list :size dim-carta :ratio "fill"))
-                            ,@(when (> margine 0)   ; ← se margine > 0, lo convertiamo in pollici
+                            ,@(when (> margine 0)
                                 (list :margin (format nil "~F" (/ margine 2.54))))))
              (grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
              (grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
@@ -280,20 +286,28 @@
         (uiop:with-temporary-file (:pathname dot-path :keep nil)
           (with-open-file (s dot-path :direction :output :if-exists :supersede)
             (cl-dot:print-graph grafo-dot :stream s))
-          (uiop:run-program (list "dot" (format nil "-T~A" est) 
-                                  (namestring dot-path) "-o" final-out)))
-        (format t "~%[cl-obelisk] Immagine generata in: ~A" final-out)))))
+          (multiple-value-bind (output error-output exit-code)
+              (uiop:run-program (list "dot" (format nil "-T~A" est) 
+                                       (namestring dot-path) "-o" (namestring final-out))
+                                :output :string
+                                :error-output :string
+                                :ignore-error-status t)
+            (unless (zerop exit-code)
+              (error "cl-obelisk: Graphviz (dot) ha fallito con codice ~A~%Output: ~A~%Errore: ~A"
+                     exit-code output error-output))))
+        (format t "~%[cl-obelisk] Immagine generata in: ~A" (namestring final-out))))))
 
 (defun genera-tikz-da-dsl (nome-file dsl-data &key (dir-base "output"))
   "Genera il file TikZ salvandolo in dir-base/tikz/nome-file.tex"
   (let* ((root (first dsl-data))
          (relazioni (loop for branch in (rest dsl-data) nconc (parse-smart-dsl root branch)))
-         (target-dir (format nil "~A/tikz/" dir-base))
-         (path (format nil "~A~A.tex" target-dir nome-file)))
+         (base-dir (uiop:ensure-directory-pathname dir-base))
+         (target-dir (uiop:merge-pathnames* "tikz/" base-dir))
+         (final-out (uiop:merge-pathnames* (format nil "~A.tex" nome-file) target-dir)))
     
     (ensure-directories-exist target-dir)
     
     (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
-      (with-open-file (s path :direction :output :if-exists :supersede)
+      (with-open-file (s final-out :direction :output :if-exists :supersede)
         (esporta-mappa-tikz nodi edge-styles s))
-      (format t "~%[cl-obelisk] TikZ generato in: ~A" path))))
+      (format t "~%[cl-obelisk] TikZ generato in: ~A" (namestring final-out)))))
