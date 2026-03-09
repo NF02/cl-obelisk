@@ -92,11 +92,8 @@
     (sqrt base-scala)))
 
 (defun identifica-cluster (nodo)
-  ;; Usa l'accessor corretto definito nella tua classe (centro-p)
-  (if (centro-p nodo)
-      nil 
-      ;; Qui devi decidere come identificare il ramo. 
-      ;; Se non hai una funzione per il livello, devi crearla o leggere l'ID.
+  (if (nodo-centro-p nodo)
+      nil
       (format nil "cluster_~A" (nodo-id nodo))))
 
 (defun calcola-attributi-adattivi (nodo formato num-totale-nodi)
@@ -133,22 +130,33 @@
 (defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
   (loop for figlio in (nodo-figli obj)
         collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
-                       ;; Usiamo gethash in modo sicuro
-                       (stile (gethash key (grafo-edge-styles graph) :default))
-                       ;; Definiamo gli attributi base
-                       (attrs (case stile
-                                (:tratteggiato   '(:style :dashed :arrowhead :vee))
-                                (:relazione-base '(:style :dashed :arrowhead :none))
-                                (:relazione-crow '(:style :crow :arrowhead :crow))
-                                (:relazione-curve '(:style :crow :arrowhead :curve))
-                                (:relazione-icurve '(:style :crow :arrowhead :icurve))
-                                (:importante     '(:penwidth 2.5 :color "#000000"))
-                                (t               '(:arrowhead :vee)))))
-                  ;; Restituiamo l'oggetto che cl-dot si aspetta
+                       (valore-g (gethash key (grafo-edge-styles graph) :default))
+                       
+                       ;; Estrazione intelligente: gestisce sia lo stile atomico che la lista con constraint
+                       (stile (if (listp valore-g) (first valore-g) valore-g))
+                       (is-constrained (if (listp valore-g) 
+                                           (getf (rest valore-g) :constraint t) 
+                                           t))
+
+                       ;; Definizione attributi base
+                       (base-attrs (case stile
+                                     (:tratteggiato   '(:style :dashed :arrowhead :vee))
+                                     (:relazione-base '(:style :dashed :arrowhead :none))
+                                     (:relazione-crow '(:style :crow :arrowhead :crow))
+                                     (:relazione-curve '(:style :crow :arrowhead :curve))
+                                     (:relazione-icurve '(:style :crow :arrowhead :icurve))
+                                     (:importante     '(:penwidth 2.5 :color "#000000"))
+                                     (t               '(:arrowhead :vee))))
+                       
+                       ;; Aggiunta del constraint se necessario
+                       (final-attrs (if (null is-constrained)
+                                        (append base-attrs '(:constraint "false"))
+                                        base-attrs)))
+                  
+                  ;; Restituiamo l'oggetto con gli attributi corretti
                   (make-instance 'cl-dot:attributed 
                                  :object figlio 
-                                 :attributes attrs))))
-
+                                 :attributes final-attrs))))
 ;; --- 4. Esportazione TikZ ---
 
 (defun esporta-mappa-tikz (nodi edge-styles stream)
@@ -189,65 +197,66 @@
                      (setf coda (nconc coda (list (cons dest (1+ d))))))))))
     distanze))
 
+(defun ensure-gethash (key hash-table default-value)
+  "Recupera il valore per key; se non esiste, inserisce default-value e lo restituisce."
+  (multiple-value-bind (value exists)
+      (gethash key hash-table)
+    (if exists
+        value
+        (setf (gethash key hash-table) default-value))))
+
 (defun prepara-mappa (relazioni centro-id)
-  "Istanzia correttamente gli oggetti nodo-mappa e popola gli archi con la gestione del livello."
-  (let ((distanze (calcola-gerarchia centro-id relazioni))
-        (nodi-cache (make-hash-table :test 'equal))
+  (let ((nodi-cache (make-hash-table :test 'equal))
         (edge-styles (make-hash-table :test 'equal)))
+    ;; Primo passaggio: assicura che il nodo centrale esista
+    (setf (gethash centro-id nodi-cache) 
+          (make-instance 'nodo-mappa :id centro-id :centro-p t))
     
     (dolist (rel relazioni)
-      (destructuring-bind (da-id a-id stile-arco) rel
-        ;; Funzione locale per ottenere o creare il nodo
-        (flet ((prendi-nodo (id)
-                 (or (gethash id nodi-cache)
-                     (setf (gethash id nodi-cache)
-                           (make-instance 'nodo-mappa 
-                                          :id id 
-                                          :centro-p (string= id centro-id) 
-                                          ;; Recupera il livello calcolato da calcola-gerarchia
-                                          :livello (gethash id distanze 0))))))
+      (destructuring-bind (da-id a-id stile-arco &rest opt) rel
+        ;; Qui la chiave: cerca sempre il nodo, non crearne uno nuovo se esiste già
+        (let ((nodo-da (or (gethash da-id nodi-cache)
+                           (setf (gethash da-id nodi-cache) (make-instance 'nodo-mappa :id da-id))))
+              (nodo-a  (or (gethash a-id nodi-cache)
+                           (setf (gethash a-id nodi-cache) (make-instance 'nodo-mappa :id a-id))))
+              (constraint (getf opt :constraint t)))
           
-          (let ((nodo-da (prendi-nodo da-id))
-                (nodo-a (prendi-nodo a-id)))
-            ;; Aggiunge il nodo figlio alla lista dei figli del padre
-            (pushnew nodo-a (nodo-figli nodo-da))
-            ;; Memorizza lo stile dell'arco usando la coppia (da . a)
-            (setf (gethash (cons da-id a-id) edge-styles) stile-arco)))))
-    
-    ;; Restituisce la lista dei nodi unici e la tabella degli stili
-    (values (loop for v being the hash-values of nodi-cache collect v) 
-            edge-styles)))
+          (pushnew nodo-a (nodo-figli nodo-da))
+          (setf (gethash (cons da-id a-id) edge-styles) (list stile-arco :constraint constraint)))))
+    (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
 
 (defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)))
-  "Trasforma il DSL in una lista piatta di relazioni, gestendo sia rami (liste) che foglie (stringhe)."
   (cond
-    ;; Caso 1: È una stringa -> Foglia terminale, usa uno stile di default
     ((stringp node-data)
+     ;; Se è una stringa, è un arco semplice.
      (list (list parent node-data :default)))
-    
-    ;; Caso 2: È una lista -> Nodo con stile, label e potenziali figli
     (t
-     (let* ((stile (first node-data))
+     (let* ((stile (or (first node-data) :default))
             (label (second node-data))
-            (children (cddr node-data))
-            (rel (list parent label stile)))
-       (if (gethash label seen)
-           (list rel) ;; Evita cicli infiniti
-           (progn
-             (setf (gethash label seen) t)
-             (cons rel (loop for child in children 
-                             nconc (parse-smart-dsl label child seen)))))))))
-
+            (children (cddr node-data)))
+       
+       (if (and label (stringp label))
+           (let ((rel (list parent label stile)))
+             ;; Se l'arco esiste già, non creare un nuovo nodo, ma chiudi il ciclo
+             (if (gethash (cons parent label) seen)
+                 (list (append rel '(:constraint "false")))
+                 (progn
+                   (setf (gethash (cons parent label) seen) t)
+                   (cons rel (loop for child in children
+                                   when child
+                                   nconc (parse-smart-dsl label child seen))))))
+           nil)))))
 ;; --- 6. API Pubbliche con Gestione Cartelle Output ---
-
-(defun genera-da-dsl (nome-file dsl-data &key (stile :tecnico) (formato :png) (orientamento :verticale) (carta :a4) (dir-base "output"))
+(defun genera-da-dsl (nome-file dsl-data &key (stile :tecnico) (formato :png) 
+                                 (orientamento :verticale) (carta :a4) 
+                                 (dir-base "output")
+                                 (margine 0))   ; ← nuovo parametro in cm
   "Genera l'immagine salvandola in dir-base/formato/nome-file.estensione"
   (let* ((root (first dsl-data))
          (relazioni (loop for branch in (rest dsl-data) nconc (parse-smart-dsl root branch)))
          (rankdir (if (eq orientamento :orizzontale) "LR" "TB"))
          (dim-carta (risolvi-formato-carta carta))
          (est (string-downcase (symbol-name formato)))
-         ;; Creazione del percorso dinamico: output/png/ o output/pdf/
          (target-dir (format nil "~A/~A/" dir-base est))
          (final-out (format nil "~A~A.~A" target-dir nome-file est)))
     
@@ -255,13 +264,16 @@
     
     (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
       (let* ((num-totale (length nodi))
-	     (distanze (calcola-spaziatura num-totale))
-	     (graph-attrs `(:rankdir ,rankdir
-			    :overlap "false"
-			    :splines "true"
-			    :nodesep ,(first distanze)   ;; <--- DINAMICO
-			    :ranksep ,(second distanze)  ;; <--- DINAMICO
-				     ,@(when dim-carta (list :size dim-carta :ratio "fill"))))
+             (distanze (calcola-spaziatura num-totale))
+             ;; Costruzione degli attributi del grafo con margine opzionale
+             (graph-attrs `(:rankdir ,rankdir
+                            :overlap "false"
+                            :splines "true"
+                            :nodesep ,(first distanze)
+                            :ranksep ,(second distanze)
+                            ,@(when dim-carta (list :size dim-carta :ratio "fill"))
+                            ,@(when (> margine 0)   ; ← se margine > 0, lo convertiamo in pollici
+                                (list :margin (format nil "~F" (/ margine 2.54))))))
              (grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
              (grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
         
@@ -269,7 +281,7 @@
           (with-open-file (s dot-path :direction :output :if-exists :supersede)
             (cl-dot:print-graph grafo-dot :stream s))
           (uiop:run-program (list "dot" (format nil "-T~A" est) 
-				  (namestring dot-path) "-o" final-out)))
+                                  (namestring dot-path) "-o" final-out)))
         (format t "~%[cl-obelisk] Immagine generata in: ~A" final-out)))))
 
 (defun genera-tikz-da-dsl (nome-file dsl-data &key (dir-base "output"))
