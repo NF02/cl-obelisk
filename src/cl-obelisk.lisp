@@ -118,8 +118,8 @@
                           (:tecnico     '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier"))
                           (:scientifico '(:shape :none :fontname "Times-Italic"))
                           (:umanistico  '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic"))
-                          (:boheme      '(:shape :oval :style "filled,bold" :fillcolor "#FFD700" :pencolor "#000000" :penwidth 3.0 :fontname "Comic Sans MS"))
-                          (t            '(:shape :ellipse)))))
+			  (:boheme      '(:shape :egg :style (:filled :dashed) :fillcolor "#ff9966" :color "#993300" :fontname "Times-Bold"))
+			  (t            '(:shape :ellipse)))))
       (make-instance 'cl-dot:node
                      :attributes (append base-attrs style-attrs group-attr)))))
 
@@ -168,11 +168,14 @@
 
 ;; --- 5. Logica Core e Parser DSL ---
 
-(defun calcola-spaziatura (num-nodi)
-  "Restituisce una lista (nodesep ranksep) inversamente proporzionale al numero di nodi."
-  (cond ((< num-nodi 10) (list 1.5 2.0))
-        ((< num-nodi 30) (list 0.8 1.0))
-        (t               (list 0.3 0.5))))
+(defun calcola-spaziatura (num-nodi &optional (fattore-scala 4.0))
+  "Calcola la spaziatura basata sulla radice quadrata inversa per una distribuzione ottimale su 2D."
+  (let* ((n (max 1.0 (float num-nodi)))
+         (spaziatura (/ fattore-scala (sqrt n)))
+         ;; Applichiamo un limite inferiore fisico (es. 0.2 unità per non sovrapporsi)
+         (min-s 0.2))
+    (list (max min-s spaziatura) 
+	  (max min-s (* spaziatura 1.3)))))
 
 (defun calcola-gerarchia (centro-id relazioni)
   "Calcola la distanza BFS dalla radice."
