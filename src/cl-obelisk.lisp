@@ -20,11 +20,14 @@
   ((id       :initarg :id       :accessor nodo-id                     :documentation "Etichetta originale (LaTeX ammesso).")
    (livello  :initarg :livello  :initform 0   :accessor nodo-livello  :documentation "Profondità nella gerarchia.")
    (centro-p :initarg :centro-p :initform nil :accessor nodo-centro-p :documentation "Vero se è il nodo radice.")
+   (cluster  :initarg :cluster  :initform nil :accessor nodo-cluster  :documentation "Contenitore di nodi")
    (figli    :initform nil      :accessor nodo-figli                  :documentation "Lista di istanze nodo-mappa collegate.")))
 
 (defclass mappa-grafo (cl-dot:graph)
-  ((stile       :initarg :stile       :accessor grafo-stile)
-   (edge-styles :initarg :edge-styles :accessor grafo-edge-styles)))
+  ((stile        :initarg :stile        :accessor grafo-stile)
+   (edge-styles  :initarg :edge-styles  :accessor grafo-edge-styles)
+   ;; Cache interna per gestire l'identità dei cluster
+   (cluster-objs :initform (make-hash-table :test 'equal) :accessor grafo-clusters)))
 
 ;; --- 2. Utility per Stringhe e Matematica (Pure Lisp) ---
 
@@ -97,6 +100,25 @@
   (if (nodo-centro-p nodo)
       nil
       (format nil "cluster_~A" (nodo-id nodo))))
+;; Diciamo a cl-dot a quale cluster appartiene l'oggetto
+(defmethod cl-dot:graph-object-cluster ((graph mappa-grafo) (obj nodo-mappa))
+  (when (nodo-cluster obj)
+    (format nil "cluster_~A" (nodo-cluster obj))))
+
+;; Opzionale: Personalizziamo l'aspetto del cluster (titolo, colore bordo)
+(defmethod cl-dot:graph-object-cluster ((graph mappa-grafo) (obj nodo-mappa))
+  "Restituisce l'oggetto cluster associato al nodo. Se non esiste, lo crea."
+  (let ((nome-cluster (nodo-cluster obj)))
+    (when nome-cluster
+      (or (gethash nome-cluster (grafo-clusters graph))
+          (setf (gethash nome-cluster (grafo-clusters graph))
+                (make-instance 'cl-dot:cluster
+                               :attributes `(:label ,nome-cluster 
+                                             :style :dashed 
+                                             :color "#bbbbbb"
+					     :style :filled       ; <-- Pieno
+					     :fillcolor "#f5f5f5" ; <-- Grigio chiaro professionale
+					     :fontsize 15)))))))
 
 (defun calcola-attributi-adattivi (nodo formato num-totale-nodi)
   (let* ((lvl (nodo-livello nodo))
@@ -200,43 +222,46 @@
         value
         (setf (gethash key hash-table) default-value))))
 
+(defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)) (current-cluster nil))
+  (cond
+    ((stringp node-data)
+     (list (list parent node-data :default :cluster current-cluster)))
+    (t
+     (let* ((head (first node-data))
+            ;; Identifichiamo se è un link trasversale (ponte)
+            (is-ponte (eq head :ponte)) 
+            (is-container (eq head :contenitore))
+            (stile (if (or is-container is-ponte) :default head))
+            (label (second node-data))
+            (children (cddr node-data))
+            (next-cluster (if is-container label current-cluster)))
+       
+       (if (and label (stringp label))
+           ;; Se è un ponte, non creiamo la relazione (parent -> label)
+           (let ((rel (unless is-ponte 
+                        (list parent label stile :cluster next-cluster))))
+             (append (when rel (list rel))
+                     (loop for child in children
+                           when child
+                           nconc (parse-smart-dsl label child seen next-cluster))))
+           nil)))))
+
 (defun prepara-mappa (relazioni centro-id)
   (let ((nodi-cache (make-hash-table :test 'equal))
         (edge-styles (make-hash-table :test 'equal)))
-    ;; Primo passaggio: assicura che il nodo centrale esista
     (setf (gethash centro-id nodi-cache) 
           (make-instance 'nodo-mappa :id centro-id :centro-p t))
-    
     (dolist (rel relazioni)
-      (destructuring-bind (da-id a-id stile-arco &rest opt) rel
+      (destructuring-bind (da-id a-id stile-arco &key cluster (constraint t) &allow-other-keys) rel
         (let ((nodo-da (or (gethash da-id nodi-cache)
                            (setf (gethash da-id nodi-cache) (make-instance 'nodo-mappa :id da-id))))
               (nodo-a  (or (gethash a-id nodi-cache)
-                           (setf (gethash a-id nodi-cache) (make-instance 'nodo-mappa :id a-id))))
-              (constraint (getf opt :constraint t)))
+                           (setf (gethash a-id nodi-cache) (make-instance 'nodo-mappa :id a-id)))))
+          ;; Se il nodo non ha ancora un cluster, glielo assegniamo
+          (unless (nodo-cluster nodo-a) (setf (nodo-cluster nodo-a) cluster))
           (pushnew nodo-a (nodo-figli nodo-da))
           (setf (gethash (cons da-id a-id) edge-styles) (list stile-arco :constraint constraint)))))
     (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
-
-(defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)))
-  (cond
-    ((stringp node-data)
-     (list (list parent node-data :default)))
-    (t
-     (let* ((stile (or (first node-data) :default))
-            (label (second node-data))
-            (children (cddr node-data)))
-       
-       (if (and label (stringp label))
-           (let ((rel (list parent label stile)))
-             (if (gethash (cons parent label) seen)
-                 (list (append rel '(:constraint "false")))
-                 (progn
-                   (setf (gethash (cons parent label) seen) t)
-                   (cons rel (loop for child in children
-                                   when child
-                                   nconc (parse-smart-dsl label child seen))))))
-           nil)))))
 
 ;; --- 6. Controllo Graphviz ---
 

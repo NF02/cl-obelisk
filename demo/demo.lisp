@@ -48,3 +48,18 @@
 			    :formato :pdf
 			    :stile :umanistico
 			  )
+
+
+(cl-obelisk:genera-da-dsl "test-contenitore-fixed"
+			  '("Main System"
+			    (:contenitore "Infrastructure"
+			     "PostgreSQL"
+			     "Redis")
+			    (:contenitore "Frontend"
+			     "React UI"
+			     "Assets")
+			    ;; Usiamo :ponte così "Redis" non viene collegato a "Main System"
+			    (:ponte "Redis" "fine") 
+			    (:ponte "Assets" "fine"))
+			  :stile :umanistico
+			  :carta :a4-or)
