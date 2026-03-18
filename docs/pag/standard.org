@@ -1,0 +1,57 @@
+#+title: Standard Cl-obelisk
+#+author: Nicola Ferru Aka NFVblog
+
+Anche qui bisogna fare chiarezza il DSL segue uno standard logico interno, di fatto la relazione è la seguente:
+#+begin_src lisp
+  (cl-obelisk:genera-da-dsl "identificativo-file"
+  			  '("Nodo Radice (Titolo Mappa)"
+  			    (:tipo-relazione "Titolo del Nodo Figlio")
+  			    (:tipo-relazione "Altro Nodo"
+  			     (:tipo-relazione "Nodo Nipote"))))
+#+end_src
+
+* La semantica del ~:contenitore~                               :contenitore:
+Il caso speciale della keyword ~:contenitore~ introduce una variazione strutturale:
+
+1. *Titolo del Nodo*: Il primo argomento della lista definisce il nome dell'entità logica.
+2. *Bordatura (Visual Containment)*: L'intera sottolista viene racchiusa in un perimetro visivo con un'etichetta dedicata.
+
+Questo standard permette di passare da una semplice gerarchia a una mappatura a compartimenti, fondamentale per isolare infrastrutture IT o dipartimenti aziendali all'interno dello stesso foglio ISO.
+
+Questo viene comunemente spresso come:
+#+begin_src lisp
+  (...
+   (:contenitore "Titolo contenitore"
+  	       "Primo elemento del contenitore"
+  	       "Secondo elemento del contenitore"
+  	       )
+   (:ponte "Primo elemento del contenitore" "elemento esterno al cotenitore"))
+#+end_src
+
+** Composizione Avanzata: Cluster e Cross-Linking
+
+Lo standard di Cl-obelisk permette la coesistenza di logiche diverse nello stesso blocco di codice:
+- *Logica di Gruppo*: Utilizzando =(:contenitore ...)= si aggregano nodi con un'identità comune.
+- *Logica di Flusso*: Utilizzando =(:ponte ...)= si definiscono interazioni che ignorano i confini del cluster, evitando che il layout diventi rigido o "manghi" i margini a causa di gerarchie troppo profonde.
+
+* L'Univocità Nominale (Case Sensitivity)
+
+Nello standard di Obelisk, il nome del nodo funge da *chiave primaria* (ID). La distinzione tra maiuscole e minuscole garantisce i seguenti vantaggi tecnici:
++ *Prevenzione dell'Ambiguità*: Impedisce sovrapposizioni accidentali tra etichette simili ma logicamente diverse (es. "Risorse" come dipartimento e "risorse" come asset tecnico).
++ *Collegamenti Multipli e Bidirezionali*: Poiché ogni stringa è mappata univocamente a un oggetto =nodo-mappa= nella hash-table interna del grafo, il parser può tracciare archi ~:ponte~ precisi. Se la sintassi fosse case-insensitive, il sistema rischierebbe di collegare il nodo sbagliato, creando cicli infiniti o grafi "rotti".
++ *Integrità del Parser*: La funzione ~parse-smart-dsl~ utilizza l'identità testuale per decidere se creare un nuovo nodo o puntare a uno esistente. La case sensitivity rende questa operazione deterministica e veloce ($O(1)$ nell'accesso alla tabella dei nodi).
+  
+** Parametri Generali: Integrazione Nativa (No Config Files)
+
+In cl-obelisk, il controllo del supporto fisico e dello stile non avviene tramite file esterni, ma viene iniettato direttamente nella chiamata alla funzione. Questo elimina il rischio di "configurazioni fantasma" che potrebbero alterare la resa tipografica su macchine diverse.
+
+** Struttura della Chiamata Standard
+
+I parametri di pagina, formato e stile sono passati come keyword arguments (&key), integrandosi naturalmente nel workflow di Common Lisp:
+#+begin_src lisp
+  (cl-obelisk:genera-da-dsl "Mappa-Strategica"
+                '("Holding" (:contenitore "Startup" "AI-Core"))
+                :stile :umanistico   ; Definisce il look-and-feel
+                :carta :a3-or        ; Imposta lo standard ISO A3 orizzontale
+                :formato :pdf)       ; Definisce l'output vettoriale
+#+end_src
