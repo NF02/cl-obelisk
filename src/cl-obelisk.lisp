@@ -3,14 +3,14 @@
 ;;; License: GPLv3
 
 (defpackage :cl-obelisk
-  (:use :cl)
-  (:export #:nodo-mappa
-           #:mappa-grafo
-           #:esporta-mappa
-           #:genera-da-dsl
-           #:esporta-mappa-tikz
-           #:genera-tikz-da-dsl
-           #:graphviz-installed-p))
+	    (:use :cl)
+	    (:export #:nodo-mappa
+		     #:mappa-grafo
+		     #:esporta-mappa
+		     #:genera-da-dsl
+		     #:esporta-mappa-tikz
+		     #:genera-tikz-da-dsl
+		     #:graphviz-installed-p))
 
 (in-package :cl-obelisk)
 
@@ -34,12 +34,12 @@
 (defun string-replace-all (old new string)
   "Sostituisce tutte le occorrenze di una sottostringa in modo iterativo e sicuro."
   (with-output-to-string (out)
-    (loop with old-len = (length old)
-          for start = 0 then (+ pos old-len)
-          for pos = (search old string :start2 start)
-          do (write-string (subseq string start (or pos (length string))) out)
-          while pos
-          do (write-string new out))))
+			 (loop with old-len = (length old)
+			       for start = 0 then (+ pos old-len)
+			       for pos = (search old string :start2 start)
+			       do (write-string (subseq string start (or pos (length string))) out)
+			       while pos
+			       do (write-string new out))))
 
 (defun render-lisp-math (label)
   "Trasforma LaTeX in testo leggibile per il PNG senza sbilanciare le parentesi."
@@ -61,15 +61,15 @@
 (defun risolvi-formato-carta (formato)
   "Mappa i simboli dei formati carta nelle dimensioni Graphviz."
   (case formato
-    (:a4 "8.3,11.7!")
-    (:a4-or "11.7,8.3!")
-    (:a3 "11.7,16.5!")
-    (:a3-or "16.5,11.7!")
-    (:a2 "16.5,23.4!")
-    (:a2-or "23.4,16.5!")
-    (t (if (listp formato)
-           (format nil "~A,~A!" (first formato) (second formato))
-           nil))))
+	(:a4 "8.3,11.7!")
+	(:a4-or "11.7,8.3!")
+	(:a3 "11.7,16.5!")
+	(:a3-or "16.5,11.7!")
+	(:a2 "16.5,23.4!")
+	(:a2-or "23.4,16.5!")
+	(t (if (listp formato)
+               (format nil "~A,~A!" (first formato) (second formato))
+             nil))))
 
 ;; --- 3. Implementazione Protocollo cl-dot (PNG/SVG) ---
 
@@ -77,13 +77,13 @@
   (declare (optimize (speed 3)))
   (the single-float
        (case formato
-         (:a4 1.2)
-         (:a4-or 1.5)
-         (:a3 1.414)
-         (:a3-or 1.8)
-         (:a2 2.0)
-         (:a2-or 2.3)
-         (t 1.0))))
+             (:a4 1.2)
+             (:a4-or 1.5)
+             (:a3 1.414)
+             (:a3-or 1.8)
+             (:a2 2.0)
+             (:a2-or 2.3)
+             (t 1.0))))
 
 (defun calcola-fattore-densita (num-nodi)
   "Riduce il fattore di scala se ci sono troppi nodi."
@@ -99,26 +99,26 @@
 (defun identifica-cluster (nodo)
   (if (nodo-centro-p nodo)
       nil
-      (format nil "cluster_~A" (nodo-id nodo))))
+    (format nil "cluster_~A" (nodo-id nodo))))
 ;; Diciamo a cl-dot a quale cluster appartiene l'oggetto
 (defmethod cl-dot:graph-object-cluster ((graph mappa-grafo) (obj nodo-mappa))
-  (when (nodo-cluster obj)
-    (format nil "cluster_~A" (nodo-cluster obj))))
+	   (when (nodo-cluster obj)
+	     (format nil "cluster_~A" (nodo-cluster obj))))
 
 ;; Opzionale: Personalizziamo l'aspetto del cluster (titolo, colore bordo)
 (defmethod cl-dot:graph-object-cluster ((graph mappa-grafo) (obj nodo-mappa))
-  "Restituisce l'oggetto cluster associato al nodo. Se non esiste, lo crea."
-  (let ((nome-cluster (nodo-cluster obj)))
-    (when nome-cluster
-      (or (gethash nome-cluster (grafo-clusters graph))
-          (setf (gethash nome-cluster (grafo-clusters graph))
-                (make-instance 'cl-dot:cluster
-                               :attributes `(:label ,nome-cluster 
-                                             :style :dashed 
-                                             :color "#bbbbbb"
-					     :style :filled       ; <-- Pieno
-					     :fillcolor "#f5f5f5" ; <-- Grigio chiaro professionale
-					     :fontsize 15)))))))
+	   "Restituisce l'oggetto cluster associato al nodo. Se non esiste, lo crea."
+	   (let ((nome-cluster (nodo-cluster obj)))
+	     (when nome-cluster
+	       (or (gethash nome-cluster (grafo-clusters graph))
+		   (setf (gethash nome-cluster (grafo-clusters graph))
+			 (make-instance 'cl-dot:cluster
+					:attributes `(:label ,nome-cluster 
+							     :style :dashed 
+							     :color "#bbbbbb"
+							     :style :filled       
+							     :fillcolor "#f5f5f5"
+							     :fontsize 15)))))))
 
 (defun calcola-attributi-adattivi (nodo formato num-totale-nodi)
   (let* ((lvl (nodo-livello nodo))
@@ -129,44 +129,45 @@
             (* (case lvl (0 4.5) (1 2.5) (2 1.2) (t 0.8)) scala-finale))))
 
 (defmethod cl-dot:graph-object-node ((graph mappa-grafo) (obj nodo-mappa))
-  (multiple-value-bind (f-size p-width)
-      (calcola-attributi-adattivi obj :a4 (length (nodo-figli obj)))
-    (let* ((label-clean (render-lisp-math (nodo-id obj)))
-           (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean))
-           (group-attr (if (nodo-centro-p obj) 
-                           nil 
-                           `(:group ,(format nil "lvl_~A" (nodo-livello obj)))))
-           (style-attrs (case (grafo-stile graph)
-                          (:tecnico     '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier"))
-                          (:scientifico '(:shape :none :fontname "Times-Italic"))
-                          (:umanistico  '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic"))
-			  (:boheme      '(:shape :egg :style (:filled :dashed) :fillcolor "#ff9966" :color "#993300" :fontname "Times-Bold"))
-			  (t            '(:shape :ellipse)))))
-      (make-instance 'cl-dot:node
-                     :attributes (append base-attrs style-attrs group-attr)))))
+	   (multiple-value-bind (f-size p-width)
+				(calcola-attributi-adattivi obj :a4 (length (nodo-figli obj)))
+				(let* ((label-clean (render-lisp-math (nodo-id obj)))
+				       (base-attrs `(:fontsize ,f-size :penwidth ,p-width :label ,label-clean))
+				       (group-attr (if (nodo-centro-p obj) 
+						       nil 
+						     `(:group ,(format nil "lvl_~A" (nodo-livello obj)))))
+				       (style-attrs (case (grafo-stile graph)
+							  (:tecnico     '(:shape :box :style :filled :fillcolor "#eeeeee" :fontname "Courier"))
+							  (:scientifico '(:shape :none :fontname "Times-Italic"))
+							  (:umanistico  '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic"))
+							  (:boheme      '(:shape :egg :style (:filled :dashed) :fillcolor "#ff9966" :color "#993300" :fontname "Times-Bold"))
+							  (:grafo       '(:shape :circle :style :filled :fillcolor "#7be9f8" :fontname "Times-Italic"))
+							  (t            '(:shape :ellipse)))))
+				  (make-instance 'cl-dot:node
+						 :attributes (append base-attrs style-attrs group-attr)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph mappa-grafo) (obj nodo-mappa))
-  (loop for figlio in (nodo-figli obj)
-        collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
-                       (valore-g (gethash key (grafo-edge-styles graph) :default))
-                       (stile (if (listp valore-g) (first valore-g) valore-g))
-                       (is-constrained (if (listp valore-g) 
-                                           (getf (rest valore-g) :constraint t) 
-                                           t))
-                       (base-attrs (case stile
-                                     (:tratteggiato   '(:style :dashed :arrowhead :vee))
-                                     (:relazione-base '(:style :dashed :arrowhead :none))
-                                     (:relazione-crow '(:style :crow :arrowhead :crow))
-                                     (:relazione-curve '(:style :crow :arrowhead :curve))
-                                     (:relazione-icurve '(:style :crow :arrowhead :icurve))
-                                     (:importante     '(:penwidth 2.5 :color "#000000"))
-                                     (t               '(:arrowhead :vee))))
-                       (final-attrs (if (null is-constrained)
-                                        (append base-attrs '(:constraint "false"))
-                                        base-attrs)))
-                  (make-instance 'cl-dot:attributed 
-                                 :object figlio 
-                                 :attributes final-attrs))))
+	   (loop for figlio in (nodo-figli obj)
+		 collect (let* ((key (cons (nodo-id obj) (nodo-id figlio)))
+				(valore-g (gethash key (grafo-edge-styles graph) :default))
+				(stile (if (listp valore-g) (first valore-g) valore-g))
+				(is-constrained (if (listp valore-g) 
+						    (getf (rest valore-g) :constraint t) 
+						  t))
+				(base-attrs (case stile
+						  (:tratteggiato   '(:style :dashed :arrowhead :vee))
+						  (:relazione-base '(:style :dashed :arrowhead :none))
+						  (:relazione-crow '(:style :crow :arrowhead :crow))
+						  (:relazione-curve '(:style :crow :arrowhead :curve))
+						  (:relazione-icurve '(:style :crow :arrowhead :icurve))
+						  (:importante     '(:penwidth 2.5 :color "#000000"))
+						  (t               '(:arrowhead :vee))))
+				(final-attrs (if (null is-constrained)
+						 (append base-attrs '(:constraint "false"))
+                                               base-attrs)))
+			   (make-instance 'cl-dot:attributed 
+					  :object figlio 
+					  :attributes final-attrs))))
 
 ;; --- 4. Esportazione TikZ con distanza dinamica ---
 
@@ -217,34 +218,34 @@
 (defun ensure-gethash (key hash-table default-value)
   "Recupera il valore per key; se non esiste, inserisce default-value e lo restituisce."
   (multiple-value-bind (value exists)
-      (gethash key hash-table)
-    (if exists
-        value
-        (setf (gethash key hash-table) default-value))))
+		       (gethash key hash-table)
+		       (if exists
+			   value
+			 (setf (gethash key hash-table) default-value))))
 
 (defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)) (current-cluster nil))
   (cond
-    ((stringp node-data)
-     (list (list parent node-data :default :cluster current-cluster)))
-    (t
-     (let* ((head (first node-data))
-            ;; Identifichiamo se è un link trasversale (ponte)
-            (is-ponte (eq head :ponte)) 
-            (is-container (eq head :contenitore))
-            (stile (if (or is-container is-ponte) :default head))
-            (label (second node-data))
-            (children (cddr node-data))
-            (next-cluster (if is-container label current-cluster)))
-       
-       (if (and label (stringp label))
-           ;; Se è un ponte, non creiamo la relazione (parent -> label)
-           (let ((rel (unless is-ponte 
-                        (list parent label stile :cluster next-cluster))))
-             (append (when rel (list rel))
-                     (loop for child in children
-                           when child
-                           nconc (parse-smart-dsl label child seen next-cluster))))
-           nil)))))
+   ((stringp node-data)
+    (list (list parent node-data :default :cluster current-cluster)))
+   (t
+    (let* ((head (first node-data))
+           ;; Identifichiamo se è un link trasversale (ponte)
+           (is-ponte (eq head :ponte)) 
+           (is-container (eq head :contenitore))
+           (stile (if (or is-container is-ponte) :default head))
+           (label (second node-data))
+           (children (cddr node-data))
+           (next-cluster (if is-container label current-cluster)))
+      
+      (if (and label (stringp label))
+          ;; Se è un ponte, non creiamo la relazione (parent -> label)
+          (let ((rel (unless is-ponte 
+                       (list parent label stile :cluster next-cluster))))
+            (append (when rel (list rel))
+                    (loop for child in children
+                          when child
+                          nconc (parse-smart-dsl label child seen next-cluster))))
+        nil)))))
 
 (defun prepara-mappa (relazioni centro-id)
   (let ((nodi-cache (make-hash-table :test 'equal))
@@ -253,14 +254,14 @@
           (make-instance 'nodo-mappa :id centro-id :centro-p t))
     (dolist (rel relazioni)
       (destructuring-bind (da-id a-id stile-arco &key cluster (constraint t) &allow-other-keys) rel
-        (let ((nodo-da (or (gethash da-id nodi-cache)
-                           (setf (gethash da-id nodi-cache) (make-instance 'nodo-mappa :id da-id))))
-              (nodo-a  (or (gethash a-id nodi-cache)
-                           (setf (gethash a-id nodi-cache) (make-instance 'nodo-mappa :id a-id)))))
-          ;; Se il nodo non ha ancora un cluster, glielo assegniamo
-          (unless (nodo-cluster nodo-a) (setf (nodo-cluster nodo-a) cluster))
-          (pushnew nodo-a (nodo-figli nodo-da))
-          (setf (gethash (cons da-id a-id) edge-styles) (list stile-arco :constraint constraint)))))
+			  (let ((nodo-da (or (gethash da-id nodi-cache)
+					     (setf (gethash da-id nodi-cache) (make-instance 'nodo-mappa :id da-id))))
+				(nodo-a  (or (gethash a-id nodi-cache)
+					     (setf (gethash a-id nodi-cache) (make-instance 'nodo-mappa :id a-id)))))
+			    ;; Se il nodo non ha ancora un cluster, glielo assegniamo
+			    (unless (nodo-cluster nodo-a) (setf (nodo-cluster nodo-a) cluster))
+			    (pushnew nodo-a (nodo-figli nodo-da))
+			    (setf (gethash (cons da-id a-id) edge-styles) (list stile-arco :constraint constraint)))))
     (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
 
 ;; --- 6. Controllo Graphviz ---
@@ -269,19 +270,19 @@
   "Verifica se il comando 'dot' di Graphviz è installato e accessibile."
   (handler-case
       (let ((exit-code 
-              (nth-value 2 (uiop:run-program '("dot" "-V") 
-                                             :output nil 
-                                             :error-output nil 
-                                             :ignore-error-status t))))
+             (nth-value 2 (uiop:run-program '("dot" "-V") 
+                                            :output nil 
+                                            :error-output nil 
+                                            :ignore-error-status t))))
         (zerop exit-code))
     (error () nil)))
 
 ;; --- 7. API Pubbliche con Gestione Cartelle Output e Margini ---
 
 (defun genera-da-dsl (nome-file dsl-data &key (stile :tecnico) (formato :png) 
-                                 (orientamento :verticale) (carta :a4) 
-                                 (dir-base "output")
-                                 (margine 0))
+                                (orientamento :verticale) (carta :a4) 
+                                (dir-base "output")
+                                (margine 0))
   "Genera l'immagine salvandola in dir-base/formato/nome-file.estensione"
   (unless (graphviz-installed-p)
     (error "cl-obelisk: Graphviz (dot) non trovato. Installalo o verifica il PATH."))
@@ -298,32 +299,32 @@
     (ensure-directories-exist target-dir)
     
     (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
-      (let* ((num-totale (length nodi))
-             (distanze (calcola-spaziatura num-totale))
-             (graph-attrs `(:rankdir ,rankdir
-                            :overlap "false"
-                            :splines "true"
-                            :nodesep ,(first distanze)
-                            :ranksep ,(second distanze)
-                            ,@(when dim-carta (list :size dim-carta :ratio "fill"))
-                            ,@(when (> margine 0)
-                                (list :margin (format nil "~F" (/ margine 2.54))))))
-             (grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
-             (grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
-        
-        (uiop:with-temporary-file (:pathname dot-path :keep nil)
-          (with-open-file (s dot-path :direction :output :if-exists :supersede)
-            (cl-dot:print-graph grafo-dot :stream s))
-          (multiple-value-bind (output error-output exit-code)
-              (uiop:run-program (list "dot" (format nil "-T~A" est) 
-                                       (namestring dot-path) "-o" (namestring final-out))
-                                :output :string
-                                :error-output :string
-                                :ignore-error-status t)
-            (unless (zerop exit-code)
-              (error "cl-obelisk: Graphviz (dot) ha fallito con codice ~A~%Output: ~A~%Errore: ~A"
-                     exit-code output error-output))))
-        (format t "~%[cl-obelisk] Immagine generata in: ~A" (namestring final-out))))))
+			 (let* ((num-totale (length nodi))
+				(distanze (calcola-spaziatura num-totale))
+				(graph-attrs `(:rankdir ,rankdir
+							:overlap "false"
+							:splines "true"
+							:nodesep ,(first distanze)
+							:ranksep ,(second distanze)
+							,@(when dim-carta (list :size dim-carta :ratio "fill"))
+							,@(when (> margine 0)
+							    (list :margin (format nil "~F" (/ margine 2.54))))))
+				(grafo-istanza (make-instance 'mappa-grafo :stile stile :edge-styles edge-styles))
+				(grafo-dot (cl-dot:generate-graph-from-roots grafo-istanza nodi graph-attrs)))
+			   
+			   (uiop:with-temporary-file (:pathname dot-path :keep nil)
+						     (with-open-file (s dot-path :direction :output :if-exists :supersede)
+								     (cl-dot:print-graph grafo-dot :stream s))
+						     (multiple-value-bind (output error-output exit-code)
+									  (uiop:run-program (list "dot" (format nil "-T~A" est) 
+												  (namestring dot-path) "-o" (namestring final-out))
+											    :output :string
+											    :error-output :string
+											    :ignore-error-status t)
+									  (unless (zerop exit-code)
+									    (error "cl-obelisk: Graphviz (dot) ha fallito con codice ~A~%Output: ~A~%Errore: ~A"
+										   exit-code output error-output))))
+			   (format t "~%[cl-obelisk] Immagine generata in: ~A" (namestring final-out))))))
 
 (defun genera-tikz-da-dsl (nome-file dsl-data &key (dir-base "output"))
   "Genera il file TikZ salvandolo in dir-base/tikz/nome-file.tex"
@@ -336,6 +337,6 @@
     (ensure-directories-exist target-dir)
     
     (multiple-value-bind (nodi edge-styles) (prepara-mappa relazioni root)
-      (with-open-file (s final-out :direction :output :if-exists :supersede)
-        (esporta-mappa-tikz nodi edge-styles s))
-      (format t "~%[cl-obelisk] TikZ generato in: ~A" (namestring final-out)))))
+			 (with-open-file (s final-out :direction :output :if-exists :supersede)
+					 (esporta-mappa-tikz nodi edge-styles s))
+			 (format t "~%[cl-obelisk] TikZ generato in: ~A" (namestring final-out)))))

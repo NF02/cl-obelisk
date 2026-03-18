@@ -12,7 +12,7 @@ La libreria presenta quattro stili, pensati per compiti distinti:
 - ~:tecnico~: un'organizzazione minimale per uso tecnico-scientifico, composta da linee dritte, nodi rettangolari e un grigio sobrio.
 - ~:umanistico~: studiato per concetti astratti; utilizza una struttura a "palloncini" per facilitare la comprensione.
 - ~:boheme~: nato dal desiderio di qualcosa di non convenzionale. È un estro creativo personale: non vuole piacere né essere adorato, esiste semplicemente perché doveva esistere.
-- ~:tondo~: uno stile moderno e simmetrico che utilizza nodi circolari su sfondo azzurro tenue. È ideale per sistemi chiusi, cicli biologici o processi logici dove ogni nodo ha lo stesso peso visivo.
+- ~:grafo~: uno stile moderno e simmetrico che utilizza nodi circolari su sfondo azzurro tenue. È ideale per sistemi chiusi, cicli biologici o processi logici dove ogni nodo ha lo stesso peso visivo.
 
 Altri stili potrebbero essere aggiunti in futuro.
 
