@@ -23,6 +23,7 @@ In questo scenario simuliamo un'architettura a microservizi. Utilizziamo i conte
 #+end_src
 
 *Output restituito:*
+
 [[./fig/demo-architettura.svg]]
 * Simulazione Aziendale: Acquisizione Startup
 Qui testiamo la capacità di Obelisk di gestire la gerarchia durante un'integrazione. Notare come lo stile
@@ -39,6 +40,7 @@ cambia per evidenziare l'entità acquisita.
                  :formato :pdf)
 #+end_src
 *Output restituito:*
+
 [[./fig/demo-m-and-a.svg]]
 * Rendering Matematico e Scientifico
 Test della funzione ~render-lisp-math~ per la conversione di espressioni LaTeX in etichette leggibili.
@@ -51,4 +53,5 @@ Test della funzione ~render-lisp-math~ per la conversione di espressioni LaTeX i
                  :stile :scientifico)
 #+end_src
 *Output restituito:*
+
 [[./fig/demo-math.svg]]
