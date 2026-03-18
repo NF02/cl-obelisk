@@ -1,0 +1,31 @@
+#+title: Regole di sviluppo
+#+author: Nicola Ferru Aka NFVblog
+
+Per evitare inutili /conflitti o fraintendimenti/, questi sono la colonna portante del progetto:
+
+- *Filosofia Core-Only*: Lo strumento si limita esclusivamente all'algoritmo di disposizione dei nodi per garantire la massima pulizia del codice sorgente.
+- *Esclusione di GUI Native*: Non verranno integrate interfacce grafiche interne; il software rimane un DSL e un'API per Common Lisp.
+- *Supporto all'Ecosistema*: Gli sviluppatori di front-end esterni possono ottenere visibilità in una sezione dedicata della documentazione per i progetti derivati.
+- *Affidabilità e Zero Down-Time*: L'obiettivo primario è la solidità del software, puntando a soluzioni che non interrompano l'operatività.
+- *Processo di Review Rigoroso*: I contributi esterni (push) richiedono tempi di analisi lunghi (settimane) per verificare la conformità agli standard del linguaggio e l'integrità del sistema.
+
+
+* Regola sostanziale: Il DSL fa il DSL.                            :dsl:kiss:
+
+La filosofia di sviluppo di Obelisk prevede una netta separazione tra il linguaggio e le sue espansioni: il DSL si occupa esclusivamente della logica di dominio e della disposizione dei nodi, mentre le interfacce grafiche e le funzionalità aggiuntive sono delegate alle estensioni.
+
+Essendo il sistema basato su Common Lisp, la modularità è nativa: chiunque può caricare la libreria ed estenderne le funzionalità sfruttando i criteri di ereditarietà e i protocolli messi a disposizione dal core. Questo approccio garantisce la massima solidità del software e la stabilità delle prestazioni (puntando al zero-downtime logico), proteggendo l'algoritmo principale da effetti collaterali indesiderati.
+
+* Finalità e Filosofia di Progettazione                  :finalità:filosofia:
+
+Obelisk è stato concepito per l'ottimizzazione dei processi creativi e la produzione di grafici ad alta precisione per l'industria. A differenza dei software tradizionali basati sul concetto di "foglio infinito" — che spesso generano layout imprevedibili, margini inconsistenti e bordi tagliati in fase di stampa — Obelisk adotta un approccio tipografico-centrico.
+
+Il cuore del sistema è un algoritmo progettato per rispettare rigorosamente gli standard ISO (/A4, A3, A2, ecc./). Questo garantisce che ogni mappa concettuale sia perfettamente centrata e scalata per il supporto fisico scelto. Se una mappa appare eccessivamente satura o illeggibile, ciò non è un limite del software, ma un indicatore di una struttura logica sottostante troppo complessa o mal organizzata: Obelisk funge quindi da termometro per la qualità delle idee, forzando l'utente alla sintesi e alla chiarezza.
+
+* Trasparenza e Modello di Sviluppo: Non è volontariato
+
+Questo progetto, come molti altri nell'ecosistema Open Source, è nato per soddisfare le specifiche necessità dell'autore. Non è un progetto umanitario o di assistenza tecnica gratuita.
+
+Obelisk segue la filosofia delineata da *Eric Steven Raymond* nel saggio "*La Cattedrale e il Bazaar*", abbracciando il modello di "/libero mercato/" applicato al software libero. Una licenza GPLv3 non è un'assenza di proprietà, ma un copyright con permessi specifici per la modifica e la ridistribuzione.
+
+In virtù di questa natura, lo standard del software e la sua evoluzione si muovono esclusivamente in base alle necessità dell'autore e dei contributori che offrono soluzioni concrete. Lo sviluppo è guidato dall'efficienza e dalla solidità dell'algoritmo, non da richieste esterne prive di utilità per il core del progetto.
