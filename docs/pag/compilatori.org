@@ -1,0 +1,10 @@
+#+title: compilatori
+#+author: Nicola Ferru Aka NFVblog
+
+Per una questione di pradicità dirò quali sono gli interpreti su cui ho testato il pacchetto:
+| *Inerprete* | *status* | *Nota*                                                                           |
+|-------------+----------+----------------------------------------------------------------------------------|
+| SBCL        | [X]      | Quello che utilizzo io                                                           |
+| CCL         | [X]      | Testato e sembra andare allo stesso modo con prestazioni simili                  |
+| ECL         | [-]      | Non lo consiglio ma dovrebbe andare, molto lento... Lasciamolo per gli Enbedded. |
+In generale, utilizzo ANSI Common Lisp, quindi va su tutti gli ambienti in cui gira Quicklisp.

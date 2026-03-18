@@ -88,6 +88,7 @@ Per una questione di trasparenza questa è la documentazione del progetto, non s
 - [[./docs/pag/demo.org][Esempi di utilizzo]]: sono presenti alcuni demo di utilizzo del programma, in modo ordinato e pratico.
 - [[./docs/pag/regole-di-sviluppo.org][Policy di sviluppo]]: Chiarimento sulle politiche di sviluppo e lo scopo del progetto.
 - [[./docs/pag/standard.org][Standard sintattico]]: Standard del DSL.
+- [[./docs/pag/compilatori.org][Compilatori Lisp compatibili]]: Quale scegliere?
   
 Per il resto bug o potenziali problematiche o richieste di nuove funzioni aprire un [[https://github.com/NF02/cl-obelisk/issues][issues]].
 ** Licenza
