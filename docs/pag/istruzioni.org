@@ -1,0 +1,55 @@
+#+TITLE: Documentazione del Parser Smart-DSL: cl-obelisk
+#+AUTHOR: Nicola Ferru Aka NFVblog
+#+DATE: 2026
+#+OPTIONS: toc:2
+
+* Architettura del Parser (Smart-DSL)
+Il parser è progettato per essere ricorsivo e trasformare una struttura di liste nidificate in una lista piatta di relazioni semantiche.
+
+** Funzione: parse-smart-dsl
+Questa è la funzione core che interpreta la S-expression.
+- *Input*: Prende un nodo genitore, i dati del nodo corrente e lo stato del cluster.
+- *Logica di Branching*: 
+  - Se l'input è una stringa, crea una relazione semplice con stile =:default=.
+  - Se l'input è una lista, estrae la "testa" (head) per determinare il comportamento del nodo.
+- *Gestione Identità*: Utilizza un parametro =seen= (hash-table) per garantire che ogni nodo sia istanziato una sola volta, permettendo riferimenti circolari o collegamenti multipli allo stesso concetto.
+
+* Parametri delle S-expression (Keywords e Simboli)
+Obelisk interpreta simboli specifici all'interno delle liste per modificare la topologia o l'estetica del grafo.
+
+** Keyword: :contenitore (Cluster)
+- *Implementazione*: Identificata tramite la variabile =is-container=.
+- *Effetto*: Definisce un nuovo ambito (=next-cluster=). Tutti i nodi figli dichiarati all'interno di questa lista verranno raggruppati visivamente in un box di sfondo tramite la funzione =cl-dot:graph-object-cluster=.
+- *Utilità*: Ideale per simulazioni aziendali per raggruppare startup acquisite o task-force temporanee.
+
+** Keyword: :ponte (Cross-link)
+- *Implementazione*: Identificata tramite =is-ponte=.
+- *Effetto*: Impedisce la creazione automatica della relazione gerarchica genitore $\to$ figlio. 
+- *Scopo*: Permette di dichiarare un nodo in un punto della gerarchia senza che esso ne sia formalmente "figlio", utile per collegamenti trasversali tra dipartimenti distanti.
+
+** Simboli di Stile Nodo
+Il primo elemento di una lista (se non è una keyword riservata) viene interpretato come lo stile del nodo tramite =cl-dot:graph-object-node=:
+- ~:importante~: Aumenta il risalto visivo.
+- ~:normal~: Stile standard (usato implicitamente se non specificato).
+
+* Parametri dell'Arco (Edge Styles)
+La gestione degli archi avviene tramite la mappatura tra coppie di nodi e stili nella funzione =cl-dot:graph-object-points-to=.
+
+** Tipi di Relazione
+- ~:tratteggiato~: Applica lo stile =:dashed= con punta =:vee=.
+- ~:relazione-base~: Linea tratteggiata senza punta (ideale per legami deboli).
+- ~:relazione-crow~ / ~:relazione-curve~: Utilizzano punte specifiche di Graphviz per diagrammi ER o flussi complessi.
+- ~:importante~: Aumenta il =penwidth= a 2.5 e forza il colore nero.
+
+** Vincoli Topologici (:constraint)
+- *Logica*: Estratto dalla lista dei parametri dell'arco.
+- *Effetto*: Se impostato su =nil=, l'arco non influisce sul posizionamento dei livelli (rank) dei nodi.
+- *Scopo*: Fondamentale per creare archi "di ritorno" o laterali che non devono stravolgere il layout verticale della mappa.
+
+* Parametri di Output (API Pubblica)
+La funzione =genera-da-dsl= accetta parametri keyword che controllano l'intero processo di rendering.
+
+** Parametri di Layout
+- ~:orientamento~: Converte =:orizzontale= in "LR" e =:verticale= in "TB" per Graphviz.
+- ~:margine~: Converte il valore in centimetri in pollici per l'attributo =:margin= di Graphviz ($cm / 2.54$).
+- ~:carta~: Utilizza =risolvi-formato-carta= per impostare le proporzioni e la dimensione finale del foglio.

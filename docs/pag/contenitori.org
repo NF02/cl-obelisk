@@ -1,0 +1,59 @@
+#+TITLE: Documentazione Tecnica: Gestione dei Contenitori (Cluster)
+#+AUTHOR: Nicola Ferru Aka NFVblog
+#+DATE: 2026
+#+OPTIONS: toc:2
+
+* Concetto di Contenitore in Obelisk
+I contenitori (implementati tramite i "Cluster" di Graphviz) permettono di raggruppare logicamente e visivamente un insieme di nodi sotto un'unica entità padre. Nel contesto delle simulazioni aziendali, questo è fondamentale per rappresentare dipartimenti, task-force o startup acquisite.
+
+* Logica di Identificazione e Cache
+Per garantire l'integrità del grafo, Obelisk gestisce i cluster come oggetti persistenti durante il ciclo di vita della generazione.
+
+** Funzione: identifica-cluster
+- *Logica*: Genera una stringa identificativa univoca con il prefisso ~cluster_~ seguita dall'ID del nodo.
+- *Vincolo*: La funzione restituisce ~nil~ se il nodo è il centro della mappa (~nodo-centro-p~), garantendo che la radice non venga mai "chiusa" in un cluster, mantenendo la gerarchia aperta.
+
+** Metodo: cl-dot:graph-object-cluster
+Questo metodo implementa il protocollo di interfacciamento con la libreria ~cl-dot~ attraverso due livelli di controllo:
+1. *Assegnazione*: Verifica se un oggetto ~nodo-mappa~ possiede un valore nello slot ~cluster~.
+2. *Istanziazione e Cache*: Se il cluster non esiste nella tabella ~grafo-clusters~ della mappa, viene istanziato come oggetto ~cl-dot:cluster~.
+   - Questo evita la duplicazione di definizioni di cluster nel file DOT finale.
+
+* Attributi Estetici del Contenitore
+Il look-and-feel dei contenitori è predefinito per bilanciare visibilità e sobrietà (coerentemente con la filosofia di non sprecare spazio):
+- *Label*: Il titolo del cluster corrisponde al nome assegnato nel DSL.
+- *Stile*: ~:dashed~ (tratteggiato) per il bordo e ~:filled~ per lo sfondo.
+- *Colori*: Bordo grigio chiaro (~#bbbbbb~) e riempimento quasi bianco (~#f5f5f5~) per non distrarre dal contenuto dei nodi.
+- *Font*: Dimensione fissa a 15 per i titoli dei cluster.
+
+* Integrazione nel DSL (Parser)
+La creazione dei cluster è trasparente per l'utente grazie alla logica ricorsiva.
+
+** Funzione: parse-smart-dsl (Logica Contenitori)
+- *Keyword*: ~:contenitore~.
+- *Comportamento*: Quando il parser incontra questa keyword, imposta la variabile ~is-container~ a vero e propaga il nome del contenitore ai figli tramite il parametro ~next-cluster~.
+- *Propagazione*: Ogni nodo figlio generato all'interno di quel ramo erediterà l'appartenenza al cluster, che verrà poi consolidata nella fase di preparazione della mappa.
+
+* Impatto sulla Topologia
+L'uso dei cluster attiva automaticamente algoritmi di layout più complessi in Graphviz. Obelisk compensa questo impatto attraverso la funzione *calcola-spaziatura*, assicurando che i cluster abbiano abbastanza "respiro" (tramite ~nodesep~ e ~ranksep~) per non collassare i nodi interni.
+
+#+srcname: Esempio di mappa concettuale con cluster
+#+begin_src lisp
+  (cl-obelisk:genera-da-dsl "test-contenitore"
+  			  '("Main System"
+  			    (:contenitore "Infrastructure"
+  			     "PostgreSQL"
+  			     "Redis")
+  			    (:contenitore "Frontend"
+  			     "React UI"
+  			     "Assets")
+  			    ;; Usiamo :ponte così "Redis" non viene collegato a "Main System"
+  			    (:ponte "Redis" "user") 
+  			    (:ponte "Assets" "user")
+  			    (:ponte "PostgreSQL" "user") 
+  			    (:ponte "React UI" "user")
+  			    )
+  			  :stile :umanistico
+  			  :carta :a4-or)
+#+end_src
+

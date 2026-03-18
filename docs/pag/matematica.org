@@ -1,0 +1,56 @@
+#+title: Documentazione Algoritmica: cl-obelisk
+#+AUTHOR: Nicola Ferru Aka NFVblog
+
+* Trasformazione Simbolica e Sanificazione
+Il sistema deve gestire la discrepanza tra la sintassi Lisp/LaTeX e i requisiti dei backend grafici.
+
+** Funzione: render-lisp-math
+Questa funzione agisce come un parser di stringhe iterativo per i nodi che contengono espressioni matematiche.
+- *Logica*: Rimuove i delimitatori ~$~ e sostituisce i comandi LaTeX standard con glifi Unicode o simboli ASCII leggibili (es. ~\frac~ diventa ~/~, ~\sqrt~ diventa ~√~).
+- *Scopo*: Evitare che Graphviz interpreti erroneamente caratteri speciali o sbilanci le parentesi durante il rendering bitmap.
+
+** Funzione: nodo-id-sanitizzato
+- *Logica*: Rimuove ogni carattere non alfanumerico e aggiunge il prefisso "n".
+- *Scopo*: Generare ID validi per i nodi in ambiente TikZ/LaTeX, dove i nomi con spazi o simboli causerebbero errori di compilazione.
+
+* Geometria del Foglio e Scala
+La gestione delle dimensioni è affidata a una mappatura fissa che influenza poi tutto il calcolo proporzionale.
+
+** Funzione: risolvi-formato-carta
+Mappa i simboli (~:a4~, ~:a3~, ~:a2~) nelle dimensioni reali in pollici richieste da Graphviz (es. *A4 = 8.3x11.7"*).
+
+** Funzione: ottenere-fattore-scala
+Assegna un coefficiente numerico basato sulla superficie totale:
+- A4: $1.2$
+- A3: $1.414$
+- A2: $2.0$
+
+* Adattività alla Densità (Smart Scaling)
+Per evitare il sovraffollamento visivo, Obelisk corregge la scala in base alla complessità del grafo.
+
+** Funzione: calcola-fattore-densita
+Applica una riduzione della scala quando il numero di nodi ($N$) supera una soglia critica:
+- Se $N \ge 50$, il fattore è calcolato come $\max(0.6, 50/N)$.
+- *Obiettivo*: Impedire che i nodi si sovrappongano quando la mappa diventa troppo densa.
+
+** Funzione: calcola-attributi-adattivi
+Combina il livello gerarchico del nodo con i fattori di scala e densità.
+- *Font Size*: Calcolato moltiplicando una base (26, 18, 14 o 12 pt a seconda del livello) per la scala finale.
+- *Pen Width*: Lo spessore del bordo decresce con la profondità del nodo nella gerarchia.
+
+* Distribuzione Spaziale e Topologia
+Il posizionamento dei nodi segue una logica di ottimizzazione dello spazio 2D.
+
+** Funzione: calcola-spaziatura
+Implementa una legge basata sulla radice quadrata inversa:
+- $spaziatura = \frac{k}{\sqrt{N}}$ (dove $k$ è il fattore di scala, default 4.0).
+- *Risultato*: I parametri ~nodesep~ (distanza tra nodi dello stesso livello) e ~ranksep~ (distanza tra livelli) si adattano automaticamente per riempire il foglio in modo armonioso.
+
+** Funzione: calcola-gerarchia
+Utilizza un algoritmo *Breadth-First Search* (BFS) per calcolare la distanza minima di ogni nodo dalla radice (~centro-id~). Questa distanza determina l'attributo ~livello~ usato per lo styling.
+
+* Esportazione TikZ
+** Funzione: esporta-mappa-tikz
+Calcola la distanza tra i nodi nel sorgente LaTeX utilizzando la formula:
+- $distanza = \max(1.5, \frac{15}{\sqrt{N}})$
+Assicura che il codice TikZ generato sia scalato correttamente per l'inclusione in documenti scientifici.

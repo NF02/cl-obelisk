@@ -11,6 +11,7 @@ La libreria presenta quattro stili, pensati per compiti distinti:
 
 - ~:tecnico~: un'organizzazione minimale per uso tecnico-scientifico, composta da linee dritte, nodi rettangolari e un grigio sobrio.
 - ~:umanistico~: studiato per concetti astratti; utilizza una struttura a "palloncini" per facilitare la comprensione.
+- ~:scientifico~: perfetto per il mapping matematico, senza nodi senza bordi e linee pulite per le relazioni.
 - ~:boheme~: nato dal desiderio di qualcosa di non convenzionale. È un estro creativo personale: non vuole piacere né essere adorato, esiste semplicemente perché doveva esistere.
 - ~:grafo~: uno stile moderno e simmetrico che utilizza nodi circolari su sfondo azzurro tenue. È ideale per sistemi chiusi, cicli biologici o processi logici dove ogni nodo ha lo stesso peso visivo.
 
@@ -18,9 +19,10 @@ Altri stili potrebbero essere aggiunti in futuro.
 
 ** Formati supportati
 
-| *:formato*             | *:carta*            |
-|------------------------+---------------------|
-| ~:png~, ~:pdf~, ~:svg~ | ~:a2~, ~:a3~, ~:a4~ |
+| *:formato*             | *:carta*            | *:orientamento*              | *:martgini*   |
+|------------------------+---------------------+------------------------------+---------------|
+| ~:png~, ~:pdf~, ~:svg~ | ~:a2~, ~:a3~, ~:a4~ | ~:orizzontale~, ~:verticale~ | es. *2 (2cm)* |
+
 
 Di =default=, Obelisk ragiona in verticale, l'orientamento è una delle opzioni parametriche.
 
@@ -76,6 +78,13 @@ Per rendere più semplice la comprensione a tutti come esso funzioni _CL-obelisk
 #+name: Schema funzionale
 [[./docs/CL-OBELISK.svg]]
 
-Non è matematicamente semplice, ma quanto meno è veloce.
+Non è matematicamente semplice, ma quanto meno è veloce. Dalla versione 0.1.1 supporta pure i contenitori "cluster"!
+
+** Appendici logiche
+- [[docs/pag/matematica.org][Documentazione Algoritmica]]: Racchiude della logica matematica del software nei suoi aspetti.
+- [[docs/pag/istruzioni.org][Documentazione del Parser Smart-DSL]]: Raccolta dei parametri del del Obelisk Smart DSL.
+- [[./docs/pag/contenitori.org][Documentazione Tecnica: Gestione dei Contenitori (Cluster)]]: Questa è una parte fondamentale per poter isolare il grafico a compartimenti stagni (utile ad esempio, per infrastruttura e gestione aziendale).
+  
+  
 ** Licenza
 Distribuito sotto licenza *GPLv3*.

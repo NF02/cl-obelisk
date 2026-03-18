@@ -1,6 +1,6 @@
 (asdf:defsystem "cl-obelisk"
   :description "Generatore di mappe concettuali da DSL tramite Graphviz."
-  :version "0.1.0"
+  :version "0.1.1"
   :author "Nicola Ferru"
   :license "GPLv3"
 
