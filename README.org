@@ -81,10 +81,10 @@ Per rendere più semplice la comprensione a tutti come esso funzioni _CL-obelisk
 Non è matematicamente semplice, ma quanto meno è veloce. Dalla versione 0.1.1 supporta pure i contenitori "cluster"!
 
 ** Appendici logiche
-- [[docs/pag/matematica.org][Documentazione Algoritmica]]: Racchiude della logica matematica del software nei suoi aspetti.
-- [[docs/pag/istruzioni.org][Documentazione del Parser Smart-DSL]]: Raccolta dei parametri del del Obelisk Smart DSL.
+- [[./docs/pag/matematica.org][Documentazione Algoritmica]]: Racchiude della logica matematica del software nei suoi aspetti.
+- [[./docs/pag/istruzioni.org][Documentazione del Parser Smart-DSL]]: Raccolta dei parametri del del Obelisk Smart DSL.
 - [[./docs/pag/contenitori.org][Documentazione Tecnica: Gestione dei Contenitori (Cluster)]]: Questa è una parte fondamentale per poter isolare il grafico a compartimenti stagni (utile ad esempio, per infrastruttura e gestione aziendale).
-  
+- [[./docs/pag/demo.org][Esempi di utilizzo]]: sono presenti alcuni demo di utilizzo del programma, in modo ordinato e pratico.
   
 ** Licenza
 Distribuito sotto licenza *GPLv3*.

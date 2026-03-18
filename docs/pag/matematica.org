@@ -17,7 +17,7 @@ Questa funzione agisce come un parser di stringhe iterativo per i nodi che conte
 La gestione delle dimensioni è affidata a una mappatura fissa che influenza poi tutto il calcolo proporzionale.
 
 ** Funzione: risolvi-formato-carta
-Mappa i simboli (~:a4~, ~:a3~, ~:a2~) nelle dimensioni reali in pollici richieste da Graphviz (es. *A4 = 8.3x11.7"*).
+Mappa i simboli (~:a4~, ~:a3~, ~:a2~) nelle dimensioni reali in pollici richieste da Graphviz (es. *"A4 = 8.3x11.7"*).
 
 ** Funzione: ottenere-fattore-scala
 Assegna un coefficiente numerico basato sulla superficie totale:
@@ -53,4 +53,4 @@ Utilizza un algoritmo *Breadth-First Search* (BFS) per calcolare la distanza min
 ** Funzione: esporta-mappa-tikz
 Calcola la distanza tra i nodi nel sorgente LaTeX utilizzando la formula:
 - $distanza = \max(1.5, \frac{15}{\sqrt{N}})$
-Assicura che il codice TikZ generato sia scalato correttamente per l'inclusione in documenti scientifici.
+Assicura che il codice *TikZ* generato sia scalato correttamente per l'inclusione in documenti scientifici.

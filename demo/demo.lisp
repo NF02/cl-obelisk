@@ -59,7 +59,10 @@
 			     "React UI"
 			     "Assets")
 			    ;; Usiamo :ponte così "Redis" non viene collegato a "Main System"
-			    (:ponte "Redis" "fine") 
-			    (:ponte "Assets" "fine"))
+			    (:ponte "Redis" "user") 
+			    (:ponte "Assets" "user")
+			    (:ponte "PostgreSQL" "user") 
+			    (:ponte "React UI" "user")
+			    )
 			  :stile :umanistico
 			  :carta :a4-or)
