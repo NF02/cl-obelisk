@@ -74,6 +74,7 @@
 ;; --- 3. Implementazione Protocollo cl-dot (PNG/SVG) ---
 
 (defun ottenere-fattore-scala (formato)
+  "Impostazione della soglia di scala"
   (declare (optimize (speed 3)))
   (the single-float
        (case formato
@@ -97,6 +98,7 @@
     (sqrt base-scala)))
 
 (defun identifica-cluster (nodo)
+  "Permette di identificare un cluster"
   (if (nodo-centro-p nodo)
       nil
     (format nil "cluster_~A" (nodo-id nodo))))
@@ -121,6 +123,7 @@
 							     :fontsize 15)))))))
 
 (defun calcola-attributi-adattivi (nodo formato num-totale-nodi)
+  "Calcola gli attributi per l'adattamento dei nodi"
   (let* ((lvl (nodo-livello nodo))
          (scala-formato (ottenere-fattore-scala formato))
          (scala-densita (calcola-fattore-densita num-totale-nodi))
@@ -224,6 +227,7 @@
 			 (setf (gethash key hash-table) default-value))))
 
 (defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)) (current-cluster nil))
+  "Gestione del parse del smart dsl"
   (cond
    ((stringp node-data)
     (list (list parent node-data :default :cluster current-cluster)))
@@ -248,6 +252,7 @@
         nil)))))
 
 (defun prepara-mappa (relazioni centro-id)
+  "Preparazione della mappa concettuale"
   (let ((nodi-cache (make-hash-table :test 'equal))
         (edge-styles (make-hash-table :test 'equal)))
     (setf (gethash centro-id nodi-cache) 
