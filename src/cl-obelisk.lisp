@@ -145,6 +145,7 @@
 							  (:umanistico  '(:shape :oval :style :filled :fillcolor "#fdf6e3" :fontname "Georgia italic"))
 							  (:boheme      '(:shape :egg :style (:filled :dashed) :fillcolor "#ff9966" :color "#993300" :fontname "Times-Bold"))
 							  (:grafo       '(:shape :circle :style :filled :fillcolor "#7be9f8" :fontname "Times-Italic"))
+							  (:file-system '(:shape :folder :style :filled :fillcolor "#fbf1c7" :fontname "Courier"))
 							  (t            '(:shape :ellipse)))))
 				  (make-instance 'cl-dot:node
 						 :attributes (append base-attrs style-attrs group-attr)))))
