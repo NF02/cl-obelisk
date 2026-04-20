@@ -12,7 +12,10 @@
   :components
   ((:module "src"
     :components
-    ((:file "cl-obelisk"))))
+    ((:file "kernel")
+     (:file "style")
+     (:file "api")
+     (:file "cl-obelisk"))))
 
   :long-description
   #.(uiop:read-file-string
