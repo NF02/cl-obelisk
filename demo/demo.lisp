@@ -66,3 +66,9 @@
 			    )
 			  :stile :umanistico
 			  :carta :a4-or)
+(cl-obelisk:genera-da-dsl "Analisi-Sintesi" '("Idea Centrale"
+                                                        (:importante "Logica" "Sintesi") 
+                                                        (:normal "Dettaglio" "Esempio"))
+                                                        :carta :a4 
+                                                        :margine 2
+                                                        :stile :umanistico)

@@ -22,6 +22,7 @@
 	   #:prepara-mappa #:parse-smart-dsl #:risolvi-formato-carta
 	   #:calcola-spaziatura #:string-replace-all #:render-lisp-math
 	   #:nodo-id #:nodo-id-sanitizzato #:nodo-figli #:grafo-stile
-	   #:grafo-edge-styles))
+	   #:grafo-edge-styles)
+  (:documentation "Generatore di Mappe Concettuali con Smart-DSL"))
 
 (in-package :cl-obelisk)

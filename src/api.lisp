@@ -10,11 +10,13 @@
 		#:nodo-id #:nodo-id-sanitizzato #:nodo-figli)
   (:export #:esporta-mappa-tikz
 	   #:genera-da-dsl
-	   #:genera-tikz-da-dsl))
+	   #:genera-tikz-da-dsl)
+  (:documentation "API pubblica per la generazione di mappe concettuali"))
 
 (in-package :cl-obelisk.api)
 
 (defun esporta-mappa-tikz (nodi edge-styles stream)
+  "Scrive su STREAM un ambiente TikZ che rappresenta la mappa con NODI e EDGE-STYLES."
   (let* ((num-nodi (length nodi))
          (distanza (max 1.5 (/ 15 (sqrt num-nodi)))))
     (format stream "\\begin{tikzpicture}[node distance=~,2fcm, every node/.style={draw, fill=gray!10, font=\\small}]~%" distanza)
@@ -32,6 +34,7 @@
                                 (orientamento :verticale) (carta :a4)
                                 (dir-base "output")
                                 (margine 0))
+  "Genera un'immagine della mappa da DSL-DATA usando Graphviz e la salva in DIR-BASE."
   (unless (graphviz-installed-p)
     (error "cl-obelisk: Graphviz (dot) non trovato. Installalo o verifica il PATH."))
 
@@ -75,6 +78,7 @@
 			   (format t "~%[cl-obelisk] Immagine generata in: ~A" (namestring final-out))))))
 
 (defun genera-tikz-da-dsl (nome-file dsl-data &key (dir-base "output"))
+  "Genera un file TikZ (TeX) da DSL-DATA e lo salva in DIR-BASE/tikz/."
   (let* ((root (first dsl-data))
          (relazioni (loop for branch in (rest dsl-data) nconc (parse-smart-dsl root branch)))
          (base-dir (uiop:ensure-directory-pathname dir-base))

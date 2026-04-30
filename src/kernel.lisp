@@ -22,7 +22,8 @@
 	   #:calcola-gerarchia
 	   #:parse-smart-dsl
 	   #:prepara-mappa
-	   #:graphviz-installed-p))
+	   #:graphviz-installed-p)
+  (:documentation "Kernel del sistema cl-obelisk: classi, parser DSL e utilità"))
 
 (in-package :cl-obelisk.kernel)
 
@@ -31,14 +32,17 @@
    (livello  :initarg :livello  :initform 0   :accessor nodo-livello  :documentation "Profondità nella gerarchia.")
    (centro-p :initarg :centro-p :initform nil :accessor nodo-centro-p :documentation "Vero se è il nodo radice.")
    (cluster  :initarg :cluster  :initform nil :accessor nodo-cluster  :documentation "Contenitore di nodi")
-   (figli    :initform nil      :accessor nodo-figli                  :documentation "Lista di istanze nodo-mappa collegate.")))
+   (figli    :initform nil      :accessor nodo-figli                  :documentation "Lista di istanze nodo-mappa collegate."))
+  (:documentation "Nodo di una mappa concettuale, con identità, livello gerarchico e collegamenti ai figli."))
 
 (defclass mappa-grafo (cl-dot:graph)
   ((stile        :initarg :stile        :accessor grafo-stile)
    (edge-styles  :initarg :edge-styles  :accessor grafo-edge-styles)
-   (cluster-objs :initform (make-hash-table :test 'equal) :accessor grafo-clusters)))
+   (cluster-objs :initform (make-hash-table :test 'equal) :accessor grafo-clusters))
+  (:documentation "Grafo CL-DOT specializzato per il rendering di mappe concettuali con stili e cluster."))
 
 (defun string-replace-all (old new string)
+  "Sostituisce tutte le occorrenze di OLD con NEW nella stringa STRING."
   (with-output-to-string (out)
     (loop with old-len = (length old)
 	  for start = 0 then (+ pos old-len)
@@ -48,6 +52,7 @@
 	  do (write-string new out))))
 
 (defun render-lisp-math (label)
+  "Converte comandi LaTeX math (\\frac, \\sqrt, lettere greche) in testo semplice."
   (unless (and (stringp label) (plusp (length label)) (char= (char label 0) #\$))
     (return-from render-lisp-math label))
   (let ((res (remove #\$ label))
@@ -58,11 +63,13 @@
     (remove #\\ res)))
 
 (defun nodo-id-sanitizzato (nodo)
+  "Restituisce un ID alfanumerico sicuro per Graphviz anteponendo 'n'."
   (concatenate 'string "n"
                (remove-if-not #'alphanumericp
                               (string-replace-all " " "" (nodo-id nodo)))))
 
 (defun risolvi-formato-carta (formato)
+  "Converte una keyword di formato in stringa dimensioni Graphviz (es. \"8.3,11.7!\")."
   (case formato
     (:a4 "8.3,11.7!")
     (:a4-or "11.7,8.3!")
@@ -75,6 +82,7 @@
          nil))))
 
 (defun calcola-spaziatura (num-nodi &optional (fattore-scala 4.0))
+  "Calcola nodesep e ranksep adattivi in base al numero di nodi."
   (let* ((n (max 1.0 (float num-nodi)))
          (spaziatura (/ fattore-scala (sqrt n)))
          (min-s 0.2))
@@ -82,6 +90,7 @@
 	  (max min-s (* spaziatura 1.3)))))
 
 (defun calcola-gerarchia (centro-id relazioni)
+  "Calcola la distanza (livello) di ogni nodo dal centro tramite BFS."
   (let ((distanze (make-hash-table :test 'equal))
         (coda (list (cons centro-id 0))))
     (setf (gethash centro-id distanze) 0)
@@ -96,6 +105,7 @@
     distanze))
 
 (defun ensure-gethash (key hash-table default-value)
+  "Restituisce il valore per KEY in HASH-TABLE, impostandolo a DEFAULT-VALUE se assente."
   (multiple-value-bind (value exists)
 		       (gethash key hash-table)
 		       (if exists
@@ -103,6 +113,7 @@
 			 (setf (gethash key hash-table) default-value))))
 
 (defun parse-smart-dsl (parent node-data &optional (seen (make-hash-table :test 'equal)) (current-cluster nil))
+  "Parsa il DSL dichiarativo e restituisce una lista di relazioni (da a stile &key)."
   (cond
    ((stringp node-data)
     (list (list parent node-data :default :cluster current-cluster)))
@@ -125,6 +136,7 @@
         nil)))))
 
 (defun prepara-mappa (relazioni centro-id)
+  "Crea le istanze NODO-MAPPA e il hash-table degli stili archi da una lista di relazioni."
   (let ((nodi-cache (make-hash-table :test 'equal))
         (edge-styles (make-hash-table :test 'equal)))
     (setf (gethash centro-id nodi-cache)
@@ -141,6 +153,7 @@
     (values (loop for v being the hash-values of nodi-cache collect v) edge-styles)))
 
 (defun graphviz-installed-p ()
+  "Ritorna T se il comando 'dot' di Graphviz è disponibile nel PATH."
   (handler-case
       (let ((exit-code
              (nth-value 2 (uiop:run-program '("dot" "-V")
